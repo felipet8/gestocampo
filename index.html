@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Las Mulas">
+<meta name="theme-color" content="#3D2B1A">
+<title>GestoCampo — Las Mulas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1A1208;--earth:#3D2B1A;--bark:#6B4C35;--hide:#9C7A60;
+  --straw:#C8A86A;--wheat:#E2CFA0;--parch:#F2E8D0;--paper:#FAF6ED;
+  --green:#3D6B4A;--green2:#5A9469;--sky:#4A7E9B;--rust:#B83C2A;--gold:#C9940A;
+  --shadow:rgba(26,18,8,.10);--shadowD:rgba(26,18,8,.22);
+  --scan:#1A6B5A;--scan2:#25A07F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Outfit',sans-serif;background:var(--parch);color:var(--ink)}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:var(--earth);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:0}
+.login-card{background:var(--paper);border-radius:18px;padding:40px 44px;width:360px;max-width:92vw;box-shadow:0 32px 80px rgba(0,0,0,.4)}
+.login-logo{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--earth);text-align:center;margin-bottom:4px}
+.login-sub{text-align:center;font-size:12px;color:var(--hide);margin-bottom:28px}
+.login-users{display:flex;flex-direction:column;gap:10px}
+.user-btn{display:flex;align-items:center;gap:14px;padding:14px 16px;border:2px solid var(--wheat);border-radius:10px;cursor:pointer;transition:all .18s;background:var(--parch)}
+.user-btn:hover{border-color:var(--straw);background:var(--paper)}
+.user-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.user-info .u-name{font-size:14px;font-weight:600;color:var(--ink)}
+.user-info .u-role{font-size:11px;color:var(--hide);margin-top:1px}
+.pin-section{display:none;margin-top:16px}
+.pin-input{width:100%;padding:12px;border:2px solid var(--wheat);border-radius:8px;font-size:18px;text-align:center;letter-spacing:.3em;font-family:'Outfit',sans-serif;background:var(--parch);outline:none;color:var(--ink)}
+.pin-input:focus{border-color:var(--straw)}
+
+/* ── APP LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:228px;flex-shrink:0;background:var(--earth);display:flex;flex-direction:column;overflow:hidden}
+.content{flex:1;overflow-y:auto;background:var(--parch)}
+.brand{padding:22px 20px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.brand-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--straw);letter-spacing:.03em;line-height:1.1}
+.brand-campo{font-size:13px;color:var(--green2);font-weight:600;margin-top:2px}
+.brand-sub{font-size:10px;color:var(--hide);margin-top:1px}
+.nav{flex:1;padding:10px 0;overflow-y:auto}
+.nav-sect{padding:10px 18px 4px;font-size:10px;color:var(--bark);text-transform:uppercase;letter-spacing:.12em;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;cursor:pointer;color:var(--wheat);font-size:13px;border-left:3px solid transparent;transition:all .17s}
+.nav-item svg{width:15px;height:15px;opacity:.7;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav-item.active{background:rgba(200,168,106,.13);color:var(--straw);border-left-color:var(--straw)}
+.nav-item.active svg{opacity:1}
+.nav-item.admin-only{opacity:.4;cursor:not-allowed}
+.nav-item.admin-only:hover{background:none;color:var(--wheat)}
+.sidebar-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.06)}
+.user-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border-radius:8px;padding:8px 10px;cursor:pointer;transition:background .17s}
+.user-pill:hover{background:rgba(255,255,255,.1)}
+.up-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px}
+.up-info .up-name{font-size:12px;color:var(--straw);font-weight:600}
+.up-info .up-role{font-size:10px;color:var(--hide)}
+
+/* ── PAGES ── */
+.page{display:none;padding:28px 32px;animation:fadeUp .28s ease}
+.page.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.ph{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:22px;gap:12px;flex-wrap:wrap}
+.ph-title{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--ink);line-height:1}
+.ph-sub{font-size:13px;color:var(--hide);margin-top:4px}
+.ph-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ── CARDS ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:22px}
+.sc{background:var(--paper);border-radius:10px;padding:16px 18px;border:1px solid rgba(200,168,106,.2);box-shadow:0 2px 10px var(--shadow);transition:transform .18s}
+.sc:hover{transform:translateY(-2px)}
+.sc-icon{font-size:20px;margin-bottom:6px;display:block}
+.sc-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--hide);font-weight:600}
+.sc-value{font-family:'Cormorant Garamond',serif;font-size:32px;color:var(--ink);margin:3px 0 2px;line-height:1}
+.sc-value.g{color:var(--green)}.sc-value.r{color:var(--rust)}.sc-value.o{color:var(--gold)}
+.sc-sub{font-size:11px;color:var(--hide)}
+
+/* ── TABLES ── */
+.tw{background:var(--paper);border-radius:10px;border:1px solid rgba(200,168,106,.2);box-shadow:0 2px 10px var(--shadow);overflow:hidden;margin-bottom:20px}
+.tw-head{padding:13px 16px;border-bottom:1px solid var(--wheat);display:flex;justify-content:space-between;align-items:center}
+.tw-head h3{font-size:13px;font-weight:600;color:var(--earth)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--parch);color:var(--hide);font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:8px 13px;text-align:left;border-bottom:1px solid var(--wheat);font-weight:600}
+td{padding:9px 13px;border-bottom:1px solid rgba(200,168,106,.12);color:var(--ink)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(242,232,208,.4)}
+.empty-row td{text-align:center;color:var(--hide);padding:24px!important;font-size:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.b-green{background:rgba(61,107,74,.12);color:var(--green)}.b-gold{background:rgba(201,148,10,.12);color:var(--gold)}
+.b-red{background:rgba(184,60,42,.12);color:var(--rust)}.b-sky{background:rgba(74,126,155,.14);color:var(--sky)}
+.b-bark{background:rgba(107,76,53,.12);color:var(--bark)}.b-purple{background:rgba(128,0,128,.1);color:#7B2D8B}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:7px;border:none;cursor:pointer;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:500;transition:all .17s;white-space:nowrap}
+.btn-p{background:var(--green);color:#fff}.btn-p:hover{background:var(--green2)}
+.btn-s{background:var(--straw);color:var(--earth)}.btn-s:hover{background:var(--wheat)}
+.btn-g{background:transparent;color:var(--bark);border:1px solid var(--wheat)}.btn-g:hover{background:var(--parch)}
+.btn-d{background:var(--rust);color:#fff}.btn-d:hover{opacity:.85}
+.btn-xl{background:#1D6A3A;color:#fff}.btn-xl:hover{background:#278A4D}
+.icon-btn{background:none;border:none;cursor:pointer;padding:2px 5px;color:var(--hide);font-size:12px;transition:color .15s;border-radius:4px}
+.icon-btn:hover{color:var(--rust)}
+
+/* ── MODALS ── */
+.mb{display:none;position:fixed;inset:0;background:rgba(26,18,8,.5);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+.mb.open{display:flex}
+.modal{background:var(--paper);border-radius:14px;width:520px;max-width:94vw;max-height:92vh;overflow-y:auto;box-shadow:0 24px 64px var(--shadowD);animation:mIn .22s ease}
+.modal-lg{width:680px}
+@keyframes mIn{from{opacity:0;transform:scale(.93) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.mh{padding:18px 22px 12px;border-bottom:1px solid var(--wheat);display:flex;justify-content:space-between;align-items:center}
+.mh h3{font-family:'Cormorant Garamond',serif;font-size:21px}
+.mb-body{padding:16px 22px}
+.mf{padding:12px 22px;border-top:1px solid var(--wheat);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.x-btn{background:none;border:none;font-size:18px;cursor:pointer;color:var(--hide);line-height:1}
+
+/* ── FORMS ── */
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:10px;font-weight:600;color:var(--bark);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em}
+.fg input,.fg select,.fg textarea{width:100%;padding:8px 10px;border:1.5px solid var(--wheat);border-radius:7px;font-family:'Outfit',sans-serif;font-size:13px;color:var(--ink);background:var(--parch);transition:border-color .18s;outline:none}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--straw);background:var(--paper)}
+.fg textarea{resize:vertical}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px}
+
+/* ── TABS ── */
+.tabs{display:flex;border-bottom:2px solid var(--wheat);margin-bottom:16px}
+.tab{padding:8px 15px;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--hide);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .17s}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+.tab:hover:not(.active){color:var(--earth)}
+
+/* ── FILTER BAR ── */
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-bar input,.filter-bar select{padding:6px 10px;border:1.5px solid var(--wheat);border-radius:7px;font-family:'Outfit',sans-serif;font-size:12.5px;background:var(--paper);color:var(--ink);outline:none}
+
+/* ── CHARTS ── */
+.bar-row{margin-bottom:9px}
+.bar-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px}
+.bar-label span:first-child{font-weight:500}.bar-label span:last-child{color:var(--hide)}
+.bar-track{height:6px;background:var(--wheat);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.div{height:1px;background:var(--wheat);margin:18px 0}
+.money-pos{color:var(--green);font-weight:600}.money-neg{color:var(--rust);font-weight:600}
+
+/* ── FIELD MAP ── */
+.map-wrap{background:var(--paper);border-radius:12px;border:1px solid rgba(200,168,106,.2);box-shadow:0 2px 10px var(--shadow);overflow:hidden;margin-bottom:20px}
+.map-toolbar{padding:12px 16px;border-bottom:1px solid var(--wheat);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--parch)}
+.map-tool{padding:7px 13px;border-radius:6px;border:1.5px solid var(--wheat);background:var(--paper);cursor:pointer;font-size:12px;font-weight:500;color:var(--bark);transition:all .17s;white-space:nowrap}
+.map-tool:hover{border-color:var(--straw);color:var(--earth)}
+.map-tool.active{background:var(--green);color:#fff;border-color:var(--green)}
+.map-tool.danger{border-color:rgba(184,60,42,.3);color:var(--rust)}
+.map-tool.danger:hover{background:var(--rust);color:#fff;border-color:var(--rust)}
+#field-svg{width:100%;cursor:crosshair;display:block;min-height:420px;background:#e8f4e8}
+#field-svg.tool-select{cursor:default}
+#field-svg.tool-pan{cursor:grab}
+.lote-polygon{stroke:#fff;stroke-width:2;opacity:.88;transition:opacity .15s,filter .15s}
+.lote-polygon:hover{opacity:1;filter:brightness(1.08)}
+.lote-polygon.selected{stroke:var(--straw);stroke-width:3;opacity:1}
+.lote-label{font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;fill:#fff;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.lote-ha{font-family:'Outfit',sans-serif;font-size:10px;fill:rgba(255,255,255,.8);pointer-events:none}
+.draw-preview{fill:rgba(61,107,74,.25);stroke:var(--green);stroke-width:2;stroke-dasharray:5,4;pointer-events:none}
+.map-legend{padding:10px 16px;border-top:1px solid var(--wheat);display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:11px}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+
+/* LOTE PANEL */
+.lote-panel{background:var(--paper);border-radius:10px;border:1px solid rgba(200,168,106,.2);box-shadow:0 2px 10px var(--shadow);overflow:hidden;margin-bottom:20px}
+.lote-panel-head{padding:13px 16px;background:var(--parch);border-bottom:1px solid var(--wheat);display:flex;justify-content:space-between;align-items:center}
+.lote-panel-body{padding:16px}
+.lote-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.lote-card{border:2px solid var(--wheat);border-radius:9px;padding:12px 14px;cursor:pointer;transition:all .18s;position:relative}
+.lote-card:hover{border-color:var(--straw);transform:translateY(-1px)}
+.lote-card.sel{border-color:var(--green);background:rgba(61,107,74,.04)}
+.lc-color{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:middle}
+.lc-name{font-size:13px;font-weight:600;color:var(--ink)}
+.lc-ha{font-size:11px;color:var(--hide);margin-top:2px}
+.lc-crop{font-size:12px;color:var(--green);margin-top:4px;font-weight:500}
+.lc-actions{position:absolute;top:8px;right:8px;display:flex;gap:3px;opacity:0;transition:opacity .15s}
+.lote-card:hover .lc-actions{opacity:1}
+
+/* SCANNER */
+.scan-panel{background:linear-gradient(135deg,var(--scan) 0%,#0D4A3A 100%);border-radius:12px;padding:20px 22px;margin-bottom:18px;color:#fff;position:relative;overflow:hidden}
+.scan-panel::before{content:'';position:absolute;top:-30px;right:-30px;width:110px;height:110px;background:rgba(255,255,255,.05);border-radius:50%}
+.scan-inp{flex:1;padding:10px 14px;border:2px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font-family:'Outfit',sans-serif;font-size:14px;font-weight:500;outline:none;transition:border-color .18s}
+.scan-inp::placeholder{color:rgba(255,255,255,.35);font-size:12px}
+.scan-inp:focus{border-color:rgba(255,255,255,.65)}
+.scan-inp.flash{animation:sfl .3s ease}
+@keyframes sfl{50%{background:rgba(255,255,255,.35)}}
+.smc{background:var(--paper);border:2px solid var(--wheat);border-radius:9px;padding:12px 14px;cursor:pointer;transition:all .17s;text-align:center}
+.smc:hover{border-color:var(--straw)}.smc.active{border-color:var(--scan);background:rgba(26,107,90,.06)}
+
+/* EXCEL */
+.export-check{display:flex;align-items:center;gap:7px;padding:9px 13px;border:1.5px solid var(--wheat);border-radius:7px;cursor:pointer;font-size:12.5px;background:var(--paper);transition:border-color .17s}
+.export-check:hover{border-color:var(--straw)}.export-check input{accent-color:var(--green)}
+.info-box{background:rgba(74,126,155,.09);border:1px solid rgba(74,126,155,.2);border-radius:7px;padding:11px 13px;font-size:12px;color:#2a5a70;margin-bottom:14px;line-height:1.6}
+.import-preview{max-height:220px;overflow-y:auto;border:1px solid var(--wheat);border-radius:7px;margin-bottom:12px;font-size:12px}
+
+/* USERS */
+.user-card{background:var(--paper);border:1.5px solid var(--wheat);border-radius:10px;padding:16px;display:flex;align-items:center;gap:14px}
+.user-card-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.uc-name{font-size:14px;font-weight:600;color:var(--ink)}
+.uc-role{font-size:11px;color:var(--hide);margin-top:2px}
+.uc-last{font-size:11px;color:var(--hide);margin-top:4px}
+
+/* ── MOBILE RESPONSIVE ── */
+@media (max-width: 700px) {
+  .sidebar{
+    position:fixed;left:0;top:0;bottom:0;z-index:400;
+    transform:translateX(-100%);transition:transform .25s ease;
+    width:240px;
+  }
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay{
+    display:none;position:fixed;inset:0;background:rgba(26,18,8,.45);
+    z-index:399;
+  }
+  .sidebar.open ~ .sidebar-overlay{display:block}
+  .content{margin-left:0!important}
+  .hamburger{
+    display:flex;position:fixed;top:12px;left:12px;z-index:450;
+    width:38px;height:38px;border-radius:8px;background:var(--earth);
+    align-items:center;justify-content:center;cursor:pointer;
+    box-shadow:0 2px 10px var(--shadowD);flex-direction:column;gap:5px;
+    border:none;
+  }
+  .hamburger span{width:18px;height:2px;background:var(--straw);border-radius:2px;display:block}
+  .page{padding:54px 14px 20px!important}
+  .ph{flex-direction:column;align-items:flex-start!important;gap:10px}
+  .stats{grid-template-columns:1fr 1fr!important;gap:10px!important}
+  .sc{padding:12px 14px!important}
+  .sc-value{font-size:26px!important}
+  /* hide non-essential table columns on mobile */
+  table th:nth-child(3),table td:nth-child(3),
+  table th:nth-child(4),table td:nth-child(4),
+  table th:nth-child(6),table td:nth-child(6){display:none}
+  /* map full width */
+  #field-svg{min-height:280px!important}
+  .map-toolbar{flex-wrap:wrap;gap:5px;padding:8px!important}
+  .map-tool{font-size:11px!important;padding:5px 9px!important}
+  /* dashboard grids stack */
+  #p-dashboard > div[style*="grid-template-columns:1fr 1fr"],
+  #p-reportes > div[style*="grid-template-columns:1fr 1fr"]{
+    display:block!important;
+  }
+  #p-dashboard > div[style*="grid-template-columns:1fr 1fr"] > .tw,
+  #p-reportes > div[style*="grid-template-columns:1fr 1fr"] > .tw{
+    margin-bottom:14px!important;
+  }
+  .lote-grid{grid-template-columns:1fr 1fr!important}
+  .scan-panel{padding:14px 16px!important}
+  .scan-inp{font-size:13px!important}
+  .fr{grid-template-columns:1fr!important}
+  .fr3{grid-template-columns:1fr!important}
+  .modal{width:96vw!important;max-height:88vh!important}
+  .login-card{padding:28px 22px!important;width:92vw!important}
+  .filter-bar{gap:6px}
+  .filter-bar input,.filter-bar select{font-size:12px!important;padding:6px 8px!important}
+  .tw-head{padding:10px 12px!important}
+  table{font-size:12px!important}
+  th,td{padding:7px 10px!important}
+}
+@media (min-width: 701px){
+  .hamburger{display:none}
+  .sidebar-overlay{display:none!important}
+}
+.toast-wrap{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast-item{background:var(--earth);color:var(--wheat);padding:10px 16px;border-radius:8px;font-size:12.5px;box-shadow:0 6px 20px var(--shadowD);animation:tIn .28s ease;display:flex;align-items:center;gap:7px;max-width:280px}
+.toast-item.out{animation:tOut .28s ease forwards}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes tOut{to{opacity:0;transform:translateY(6px)}}
+
+/* ACTIVITY LOG */
+.act-item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(200,168,106,.1)}
+.act-item:last-child{border-bottom:none}
+.act-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:1px}
+.act-text{font-size:12.5px;color:var(--ink);flex:1}
+.act-time{font-size:10px;color:var(--hide);white-space:nowrap}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🌾 GestoCampo</div>
+    <div class="login-sub">Campo Las Mulas — Seleccioná tu usuario</div>
+    <div class="login-users" id="login-users"></div>
+    <div class="pin-section" id="pin-section">
+      <input class="pin-input" type="password" id="pin-inp" maxlength="4" placeholder="PIN" oninput="checkPin()">
+      <div style="font-size:11px;color:var(--hide);text-align:center;margin-top:6px" id="pin-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menú" style="display:none">
+  <span></span><span></span><span></span>
+</button>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div class="app" id="app" style="display:none">
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-title">🌾 GestoCampo</div>
+    <div class="brand-campo">Las Mulas</div>
+    <div class="brand-sub" id="sb-date"></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-sect">General</div>
+    <div class="nav-item active" onclick="nav('dashboard',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</div>
+    <div class="nav-sect">Campo</div>
+    <div class="nav-item" onclick="nav('campo',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>Plano del Campo</div>
+    <div class="nav-sect">Hacienda</div>
+    <div class="nav-item" onclick="nav('stock',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Stock Bovino</div>
+    <div class="nav-item" onclick="nav('scanner',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>Lector Caravanas</div>
+    <div class="nav-sect">Finanzas</div>
+    <div class="nav-item" onclick="nav('ingresos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Ingresos</div>
+    <div class="nav-item" onclick="nav('egresos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>Egresos</div>
+    <div class="nav-sect">Análisis</div>
+    <div class="nav-item" onclick="nav('reportes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Reportes</div>
+    <div class="nav-sect">Sistema</div>
+    <div class="nav-item" id="nav-usuarios" onclick="nav('usuarios',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Usuarios</div>
+    <div class="nav-item" onclick="nav('excel',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Excel</div>
+  </nav>
+  <div class="sidebar-foot">
+    <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      <span id="sync-indicator" style="font-size:10px;color:var(--hide)">💾 Local</span>
+      <button onclick="manualSync()" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--hide);padding:2px 6px;border-radius:4px;" title="Sincronizar ahora">↺</button>
+    </div>
+    <div class="user-pill" onclick="logout()">
+      <div class="up-avatar" id="sb-avatar"></div>
+      <div class="up-info"><div class="up-name" id="sb-uname">—</div><div class="up-role" id="sb-urole">—</div></div>
+      <div style="margin-left:auto;font-size:10px;color:var(--hide)">salir</div>
+    </div>
+  </div>
+</aside>
+
+<main class="content">
+
+<!-- DASHBOARD -->
+<div class="page active" id="p-dashboard">
+  <div class="ph"><div><div class="ph-title">Dashboard</div><div class="ph-sub">Resumen de Las Mulas</div></div></div>
+  <div class="stats" id="dash-stats"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="tw"><div class="tw-head"><h3>🐄 Rodeo por Categoría</h3></div><div style="padding:14px" id="dash-rodeo"></div></div>
+    <div class="tw"><div class="tw-head"><h3>💵 Balance Acumulado</h3></div><div style="padding:14px" id="dash-balance"></div></div>
+  </div>
+  <div class="div"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="tw">
+      <div class="tw-head"><h3>Últimos Movimientos</h3></div>
+      <table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th style="text-align:right">Importe</th></tr></thead>
+      <tbody id="dash-movs"></tbody></table>
+    </div>
+    <div class="tw">
+      <div class="tw-head"><h3>📋 Actividad Reciente</h3></div>
+      <div style="padding:14px" id="dash-activity"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CAMPO / PLANO -->
+<div class="page" id="p-campo">
+  <div class="ph">
+    <div><div class="ph-title">Plano del Campo</div><div class="ph-sub">Las Mulas — dibujá y gestioná tus lotes</div></div>
+    <div class="ph-actions">
+      <span style="font-size:11px;color:var(--hide)" id="campo-total-ha"></span>
+    </div>
+  </div>
+  <div class="map-wrap">
+    <div class="map-toolbar">
+      <button class="map-tool" id="tool-select" onclick="setTool('select')">🖱 Seleccionar</button>
+      <button class="map-tool active" id="tool-draw" onclick="setTool('draw')">✏️ Dibujar Lote</button>
+      <button class="map-tool" id="tool-pan" onclick="setTool('pan')">✋ Mover Vista</button>
+      <div style="width:1px;height:24px;background:var(--wheat);margin:0 4px"></div>
+      <button class="map-tool" onclick="zoomMap(1.2)">＋ Zoom</button>
+      <button class="map-tool" onclick="zoomMap(0.8)">－ Zoom</button>
+      <button class="map-tool" onclick="resetMapView()">⊙ Centrar</button>
+      <div style="width:1px;height:24px;background:var(--wheat);margin:0 4px"></div>
+      <button class="map-tool danger" id="btn-del-lote" onclick="deleteSelectedLote()" style="display:none">🗑 Borrar Lote</button>
+    </div>
+    <svg id="field-svg" viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(61,107,74,.12)" stroke-width="0.5"/>
+        </pattern>
+      </defs>
+      <rect width="800" height="480" fill="url(#grid)"/>
+      <g id="map-lotes"></g>
+      <polyline id="draw-preview-line" fill="rgba(61,107,74,.15)" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="5,4" points="" style="pointer-events:none"/>
+      <circle id="draw-cursor" r="4" fill="var(--green)" style="pointer-events:none;display:none"/>
+    </svg>
+    <div class="map-legend" id="map-legend">
+      <span style="font-size:11px;color:var(--hide)">Leyenda:</span>
+    </div>
+  </div>
+
+  <div class="ph" style="margin-bottom:12px">
+    <div><div style="font-size:16px;font-weight:600;font-family:'Cormorant Garamond',serif">Lotes Registrados</div></div>
+    <button class="btn btn-p" onclick="openM('m-lote')">+ Nuevo Lote</button>
+  </div>
+  <div class="lote-grid" id="lote-grid"></div>
+
+  <div class="div"></div>
+  <div id="lote-detail" style="display:none">
+    <div class="tw">
+      <div class="tw-head"><h3 id="ld-title">Detalle del Lote</h3><button class="btn btn-g btn-sm" onclick="closeLoteDetail()">Cerrar</button></div>
+      <div style="padding:16px" id="ld-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STOCK -->
+<div class="page" id="p-stock">
+  <div class="ph">
+    <div><div class="ph-title">Stock Bovino</div><div class="ph-sub">Hacienda propia y capitalización</div></div>
+    <div class="ph-actions"><button class="btn btn-p" onclick="openM('m-animal')">+ Agregar Animal</button></div>
+  </div>
+  <div class="stats" id="stock-stats"></div>
+  <div class="tabs">
+    <div class="tab active" onclick="setStockTab('todos',this)">Todos</div>
+    <div class="tab" onclick="setStockTab('propio',this)">Propios</div>
+    <div class="tab" onclick="setStockTab('capitalizacion',this)">Capitalización</div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="stock-search" placeholder="Buscar carimbo, raza..." oninput="renderStock()">
+    <select id="stock-cat" onchange="renderStock()">
+      <option value="">Todas las categorías</option>
+      <option>Ternero/a</option><option>Novillo</option><option>Novillito</option>
+      <option>Vaca</option><option>Vaquillona</option><option>Toro</option>
+    </select>
+    <select id="stock-estado" onchange="renderStock()">
+      <option value="">Todos los estados</option>
+      <option value="activo">Activo</option><option value="vendido">Vendido</option><option value="muerto">Muerto</option>
+    </select>
+  </div>
+  <div class="tw">
+    <table><thead><tr><th>Carimbo</th><th>Categoría</th><th>Raza</th><th>Peso</th><th>Origen</th><th>Lote</th><th>Estado</th><th></th></tr></thead>
+    <tbody id="stock-tbody"></tbody></table>
+  </div>
+</div>
+
+<!-- SCANNER -->
+<div class="page" id="p-scanner">
+  <div class="ph"><div><div class="ph-title">Lector de Caravanas</div><div class="ph-sub">Bastón USB — enchufá y escaneá</div></div></div>
+  <div class="tw" style="margin-bottom:18px">
+    <div class="tw-head"><h3>Modo de Operación</h3></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:14px">
+      <div class="smc active" onclick="setScanMode('buscar',this)"><div style="font-size:20px;margin-bottom:4px">🔍</div><div style="font-size:12.5px;font-weight:600">Consultar</div></div>
+      <div class="smc" onclick="setScanMode('ingreso',this)"><div style="font-size:20px;margin-bottom:4px">📥</div><div style="font-size:12.5px;font-weight:600">Alta Rápida</div></div>
+      <div class="smc" onclick="setScanMode('egreso',this)"><div style="font-size:20px;margin-bottom:4px">📤</div><div style="font-size:12.5px;font-weight:600">Marcar Vendido</div></div>
+      <div class="smc" onclick="setScanMode('pesaje',this)"><div style="font-size:20px;margin-bottom:4px">⚖️</div><div style="font-size:12.5px;font-weight:600">Actualizar Peso</div></div>
+    </div>
+  </div>
+  <div id="pesaje-extra" style="display:none;margin-bottom:14px">
+    <div class="tw"><div class="tw-head"><h3>⚖️ Peso a registrar</h3></div>
+      <div style="padding:12px;display:flex;gap:10px;align-items:center">
+        <div class="fg" style="margin:0;max-width:160px"><label>Kg</label><input type="number" id="scan-peso" placeholder="0"></div>
+        <div style="font-size:11px;color:var(--hide);margin-top:18px">Se aplica al próximo escaneo</div>
+      </div>
+    </div>
+  </div>
+  <div class="scan-panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;position:relative;z-index:1">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;opacity:.7">📡 Escáner · <span id="scan-mode-lbl">Consultar</span></div>
+      <div style="background:rgba(255,255,255,.12);border-radius:16px;padding:3px 10px;font-size:11px" id="scan-counter">0 operaciones</div>
+    </div>
+    <div style="display:flex;gap:8px;position:relative;z-index:1">
+      <input class="scan-inp" id="scan-inp" placeholder="Apuntá el bastón acá y escaneá — o escribí y Enter" autocomplete="off" spellcheck="false">
+      <button style="padding:10px 14px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.28);border-radius:7px;color:#fff;cursor:pointer;font-size:12.5px;font-family:'Outfit',sans-serif;transition:all .17s" onclick="processScan()">OK</button>
+      <button style="padding:10px 12px;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);border-radius:7px;color:#fff;cursor:pointer;font-size:12px" onclick="clearScanLog()" title="Limpiar">✕</button>
+    </div>
+    <div style="margin-top:8px;font-size:12px;min-height:18px;position:relative;z-index:1" id="scan-status"><span style="color:rgba(255,255,255,.4)">Esperando…</span></div>
+    <div style="margin-top:10px;max-height:100px;overflow-y:auto;position:relative;z-index:1" id="scan-log"></div>
+  </div>
+  <div id="scan-result" style="display:none">
+    <div class="tw"><div class="tw-head"><h3>🐄 Animal Escaneado</h3></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;padding:14px" id="scan-result-grid"></div></div>
+  </div>
+</div>
+
+<!-- INGRESOS -->
+<div class="page" id="p-ingresos">
+  <div class="ph">
+    <div><div class="ph-title">Ingresos</div><div class="ph-sub">Capitalización, ventas, aportes</div></div>
+    <div class="ph-actions"><button class="btn btn-p" onclick="openM('m-ing')">+ Registrar</button></div>
+  </div>
+  <div class="stats" id="ing-stats"></div>
+  <div class="filter-bar">
+    <select id="ing-tipo-f" onchange="renderIngresos()"><option value="">Todos los tipos</option><option value="capitalizacion">Capitalización</option><option value="venta">Venta Hacienda</option><option value="aporte">Aporte Socio</option><option value="otro">Otro</option></select>
+    <input type="month" id="ing-mes" onchange="renderIngresos()">
+  </div>
+  <div class="tw"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Contraparte</th><th>Usuario</th><th style="text-align:right">Importe</th><th></th></tr></thead><tbody id="ing-tbody"></tbody></table></div>
+</div>
+
+<!-- EGRESOS -->
+<div class="page" id="p-egresos">
+  <div class="ph">
+    <div><div class="ph-title">Egresos</div><div class="ph-sub">Gastos de producción, compras, sueldos</div></div>
+    <div class="ph-actions"><button class="btn btn-d" onclick="openM('m-egr')">+ Registrar</button></div>
+  </div>
+  <div class="stats" id="egr-stats"></div>
+  <div class="filter-bar">
+    <select id="egr-cat-f" onchange="renderEgresos()"><option value="">Todas las cat.</option><option value="produccion">Producción</option><option value="compra">Compra Hacienda</option><option value="sueldo">Sueldos</option><option value="sanidad">Sanidad</option><option value="combustible">Combustible</option><option value="infraestructura">Infraestructura</option><option value="impuestos">Impuestos</option><option value="otro">Otro</option></select>
+    <input type="month" id="egr-mes" onchange="renderEgresos()">
+  </div>
+  <div class="tw"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th>Proveedor</th><th>Usuario</th><th style="text-align:right">Importe</th><th></th></tr></thead><tbody id="egr-tbody"></tbody></table></div>
+</div>
+
+<!-- REPORTES -->
+<div class="page" id="p-reportes">
+  <div class="ph"><div><div class="ph-title">Reportes</div><div class="ph-sub">Análisis de Las Mulas</div></div></div>
+  <div class="stats" id="rep-stats"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="tw"><div class="tw-head"><h3>Egresos por Categoría</h3></div><div style="padding:14px" id="rep-egr-cat"></div></div>
+    <div class="tw"><div class="tw-head"><h3>Ingresos por Tipo</h3></div><div style="padding:14px" id="rep-ing-tipo"></div></div>
+  </div>
+  <div class="div"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div class="tw"><div class="tw-head"><h3>Rodeo por Categoría</h3></div><div style="padding:14px" id="rep-rodeo-cat"></div></div>
+    <div class="tw"><div class="tw-head"><h3>Lotes — Uso del Suelo</h3></div><div style="padding:14px" id="rep-lotes"></div></div>
+  </div>
+</div>
+
+<!-- USUARIOS -->
+<div class="page" id="p-usuarios">
+  <div class="ph"><div><div class="ph-title">Usuarios</div><div class="ph-sub">Las Mulas — 3 usuarios registrados</div></div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:20px" id="usuarios-grid"></div>
+  <div class="div"></div>
+  <div class="tw">
+    <div class="tw-head"><h3>📋 Log de Actividad</h3></div>
+    <div style="padding:14px;max-height:360px;overflow-y:auto" id="activity-log-full"></div>
+  </div>
+</div>
+
+<!-- EXCEL -->
+<div class="page" id="p-excel">
+  <div class="ph"><div><div class="ph-title">Excel</div><div class="ph-sub">Exportar e importar datos</div></div></div>
+  <div class="tw" style="margin-bottom:20px">
+    <div class="tw-head"><h3>📤 Exportar</h3></div>
+    <div style="padding:18px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:9px;margin-bottom:18px">
+        <label class="export-check"><input type="checkbox" id="ex-stock" checked> 🐄 Stock</label>
+        <label class="export-check"><input type="checkbox" id="ex-lotes" checked> 🗺 Lotes</label>
+        <label class="export-check"><input type="checkbox" id="ex-ing" checked> 💰 Ingresos</label>
+        <label class="export-check"><input type="checkbox" id="ex-egr" checked> 📤 Egresos</label>
+        <label class="export-check"><input type="checkbox" id="ex-res" checked> 📊 Resumen</label>
+      </div>
+      <button class="btn btn-xl" onclick="exportarExcel()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar LasMulas.xlsx
+      </button>
+    </div>
+  </div>
+  <div class="tw">
+    <div class="tw-head"><h3>📥 Importar</h3></div>
+    <div style="padding:18px">
+      <div class="info-box">Hojas válidas: <strong>Stock</strong>, <strong>Lotes</strong>, <strong>Ingresos</strong>, <strong>Egresos</strong>. Descargá la plantilla para ver el formato correcto.</div>
+      <div style="display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-s" onclick="descargarPlantilla()">📋 Plantilla Vacía</button>
+        <label class="btn btn-g" style="cursor:pointer">📂 Seleccionar .xlsx<input type="file" accept=".xlsx,.xls" id="import-file" style="display:none" onchange="previewImport(this)"></label>
+      </div>
+      <div id="import-area" style="display:none">
+        <div id="import-summary" style="font-size:13px;margin-bottom:10px;color:var(--earth);font-weight:500"></div>
+        <div class="import-preview tw" id="import-preview"></div>
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+          <select id="import-mode" style="padding:7px 11px;border:1.5px solid var(--wheat);border-radius:7px;font-family:'Outfit',sans-serif;font-size:12.5px;background:var(--paper);outline:none">
+            <option value="merge">Combinar — mantener existentes + agregar nuevos</option>
+            <option value="replace">Reemplazar — borrar todo</option>
+          </select>
+          <button class="btn btn-p" onclick="confirmarImport()">✅ Confirmar</button>
+          <button class="btn btn-g" onclick="cancelImport()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div><!-- end .app -->
+
+<!-- ══ MODALS ══ -->
+<div class="mb" id="m-animal">
+  <div class="modal">
+    <div class="mh"><h3>Agregar Animal</h3><button class="x-btn" onclick="closeM('m-animal')">✕</button></div>
+    <div class="mb-body">
+      <div class="fr"><div class="fg"><label>Carimbo *</label><input id="a-car" placeholder="ej. A-0123"></div><div class="fg"><label>Categoría *</label><select id="a-cat"><option value="">Seleccionar…</option><option>Ternero/a</option><option>Novillo</option><option>Novillito</option><option>Vaca</option><option>Vaquillona</option><option>Toro</option></select></div></div>
+      <div class="fr"><div class="fg"><label>Raza</label><input id="a-raza" placeholder="Angus, Hereford…"></div><div class="fg"><label>Peso (kg)</label><input id="a-peso" type="number" placeholder="0"></div></div>
+      <div class="fr"><div class="fg"><label>Fecha Ingreso *</label><input id="a-fecha" type="date"></div><div class="fg"><label>Lote asignado</label><select id="a-lote"><option value="">Sin lote</option></select></div></div>
+      <div class="fr"><div class="fg"><label>Origen *</label><select id="a-origen" onchange="togCap()"><option value="propio">Propio</option><option value="capitalizacion">Capitalización</option></select></div><div class="fg" id="fg-cap" style="display:none"><label>Capitalista</label><input id="a-cap" placeholder="Nombre"></div></div>
+      <div class="fr"><div class="fg"><label>Estado</label><select id="a-estado"><option value="activo">Activo</option><option value="vendido">Vendido</option><option value="muerto">Muerto</option></select></div><div class="fg"></div></div>
+      <div class="fg"><label>Observaciones</label><textarea id="a-obs" rows="2" placeholder="Notas…"></textarea></div>
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('m-animal')">Cancelar</button><button class="btn btn-p" onclick="saveAnimal()">Guardar</button></div>
+  </div>
+</div>
+
+<div class="mb" id="m-lote">
+  <div class="modal modal-lg">
+    <div class="mh"><h3 id="m-lote-title">Nuevo Lote</h3><button class="x-btn" onclick="closeM('m-lote')">✕</button></div>
+    <div class="mb-body">
+      <div class="fr"><div class="fg"><label>Nombre del Lote *</label><input id="l-nombre" placeholder="ej. Lote Norte, Potrero 1…"></div><div class="fg"><label>Hectáreas *</label><input id="l-ha" type="number" step="0.1" placeholder="0.0"></div></div>
+      <div class="fr"><div class="fg"><label>Color en mapa</label><input id="l-color" type="color" value="#4A7C59" style="height:38px;cursor:pointer"></div><div class="fg"><label>Agua / Riego</label><select id="l-riego"><option value="natural">Natural / Sin riego</option><option value="riego">Riego por gravedad</option><option value="aspersion">Aspersión</option><option value="goteo">Goteo</option><option value="aguada">Aguada / Bebedero</option></select></div></div>
+      <div class="div" style="margin:10px 0"></div>
+      <div style="font-size:12px;font-weight:600;color:var(--bark);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Cultivo / Uso Actual</div>
+      <div class="fr3"><div class="fg"><label>Cultivo</label><select id="l-cultivo"><option value="">Sin cultivo</option><option>Soja</option><option>Maíz</option><option>Trigo</option><option>Girasol</option><option>Sorgo</option><option>Alfalfa</option><option>Pastizal natural</option><option>Pastura implantada</option><option>Barbecho</option><option>Forestal</option><option>Otro</option></select></div><div class="fg"><label>Fecha de Siembra</label><input id="l-siembra" type="date"></div><div class="fg"><label>Superficie sembrada (ha)</label><input id="l-sup-sem" type="number" step="0.1" placeholder="0.0"></div></div>
+      <div class="fg"><label>Observaciones / Notas</label><textarea id="l-obs" rows="2" placeholder="Estado del suelo, arrendatario, etc."></textarea></div>
+      <input type="hidden" id="l-id">
+      <input type="hidden" id="l-points">
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('m-lote')">Cancelar</button><button class="btn btn-p" onclick="saveLote()">Guardar Lote</button></div>
+  </div>
+</div>
+
+<div class="mb" id="m-ing">
+  <div class="modal">
+    <div class="mh"><h3>Registrar Ingreso</h3><button class="x-btn" onclick="closeM('m-ing')">✕</button></div>
+    <div class="mb-body">
+      <div class="fr"><div class="fg"><label>Fecha *</label><input id="i-fecha" type="date"></div><div class="fg"><label>Tipo *</label><select id="i-tipo"><option value="capitalizacion">Capitalización</option><option value="venta">Venta Hacienda</option><option value="aporte">Aporte Socio</option><option value="otro">Otro</option></select></div></div>
+      <div class="fg"><label>Concepto *</label><input id="i-conc" placeholder="Descripción…"></div>
+      <div class="fr"><div class="fg"><label>Contraparte</label><input id="i-contra" placeholder="Nombre opcional"></div><div class="fg"><label>Importe ($) *</label><input id="i-imp" type="number" step="0.01" placeholder="0.00"></div></div>
+      <div class="fg"><label>N° Comprobante</label><input id="i-nro" placeholder="Opcional"></div>
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('m-ing')">Cancelar</button><button class="btn btn-p" onclick="saveIng()">Guardar</button></div>
+  </div>
+</div>
+
+<div class="mb" id="m-egr">
+  <div class="modal">
+    <div class="mh"><h3>Registrar Egreso</h3><button class="x-btn" onclick="closeM('m-egr')">✕</button></div>
+    <div class="mb-body">
+      <div class="fr"><div class="fg"><label>Fecha *</label><input id="e-fecha" type="date"></div><div class="fg"><label>Categoría *</label><select id="e-cat"><option value="produccion">Producción</option><option value="compra">Compra Hacienda</option><option value="sueldo">Sueldos</option><option value="sanidad">Sanidad</option><option value="combustible">Combustible</option><option value="infraestructura">Infraestructura</option><option value="impuestos">Impuestos</option><option value="otro">Otro</option></select></div></div>
+      <div class="fg"><label>Detalle *</label><input id="e-det" placeholder="Descripción…"></div>
+      <div class="fr"><div class="fg"><label>Proveedor</label><input id="e-prov" placeholder="Nombre opcional"></div><div class="fg"><label>Importe ($) *</label><input id="e-imp" type="number" step="0.01" placeholder="0.00"></div></div>
+      <div class="fg"><label>N° Comprobante</label><input id="e-nro" placeholder="Opcional"></div>
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('m-egr')">Cancelar</button><button class="btn btn-d" onclick="saveEgr()">Guardar</button></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+// USUARIOS DEL CAMPO LAS MULAS
+// ══════════════════════════════════════════════════
+const USERS = [
+  {id:'felipe',    name:'Felipe',    emoji:'👨‍💼',color:'#3D6B4A',role:'admin',pin:'1234',bg:'rgba(61,107,74,.15)'},
+  {id:'alejandro', name:'Alejandro', emoji:'👨‍🌾',color:'#4A7E9B',role:'admin',pin:'0001',bg:'rgba(74,126,155,.15)'},
+  {id:'esteban',   name:'Esteban',   emoji:'🧑‍💼',color:'#C9940A',role:'admin',pin:'0002',bg:'rgba(201,148,10,.15)'},
+]
+let currentUser = null
+let pendingUser = null
+
+// ── STORAGE LAYER (shared via localStorage key prefix) ──────────
+// In a real multi-device scenario this would be a backend.
+// Here all 3 users share the same browser localStorage so data is
+// instantly synced when used on the same machine / same browser session.
+const DB_KEY = 'gc_lasmulas_v3'
+
+// ── Potreros reales del campo Las Mulas (importados desde Shapefile) ──
+const LOTES_SHAPE = [
+  {id:'lote_0',nombre:'21',ha:11.65,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:357.2,cy:470.6,rings:[[[449.81,448.24],[445.62,452.69],[443.9,453.9],[416.87,482.84],[414.43,485.45],[397.61,504.07],[384.26,518.85],[343.49,563.97],[337.24,555.66],[335.17,551.25],[332.84,546.85],[331.28,541.41],[329.99,538.3],[328.17,534.41],[326.36,531.04],[323.51,524.82],[321.18,519.9],[319.62,515.23],[315.73,509.27],[312.88,504.35],[309.0,500.98],[305.64,500.08],[305.66,500.05],[306.69,497.88],[307.52,496.54],[308.76,494.99],[309.48,493.86],[310.31,492.82],[311.65,491.48],[313.3,490.55],[314.96,489.73],[316.71,489.31],[318.26,488.8],[319.5,488.18],[321.25,487.56],[323.11,486.83],[325.08,485.9],[327.04,485.18],[327.97,484.46],[328.79,483.22],[329.83,482.08],[331.38,481.05],[332.62,479.81],[334.27,478.78],[336.44,477.85],[337.57,477.64],[338.81,477.23],[339.64,476.2],[340.26,474.85],[340.98,474.13],[342.12,474.13],[343.67,473.41],[344.6,472.17],[345.63,471.34],[346.87,470.31],[347.9,469.17],[348.42,467.83],[348.73,466.28],[349.55,465.04],[350.48,464.42],[351.62,464.01],[352.75,463.29],[353.64,462.56],[353.89,462.36],[354.72,461.33],[355.34,460.29],[355.85,458.85],[356.78,457.4],[357.81,456.78],[359.88,455.95],[361.64,455.44],[362.88,454.72],[364.42,453.27],[365.56,452.03],[367.01,450.69],[369.28,449.55],[370.93,448.0],[372.27,446.14],[373.11,445.4],[374.03,444.59],[375.27,443.56],[376.71,443.05],[378.26,442.53],[379.61,442.53],[380.74,442.12],[381.88,441.6],[382.81,440.36],[383.84,438.29],[384.77,436.44],[385.6,434.89],[387.35,433.85],[390.14,432.72],[392.21,431.07],[393.86,429.72],[395.72,428.17],[398.82,425.18],[401.6,422.7],[403.57,420.74],[405.53,419.19],[407.28,418.16],[408.63,416.61],[409.22,415.85],[409.76,415.16],[409.8,415.12],[411.05,413.78],[449.81,448.24]]]},
+  {id:'lote_1',nombre:'07',ha:14.91,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:197.1,cy:367.1,rings:[[[313.7,398.33],[281.46,431.49],[232.49,393.68],[201.31,390.78],[195.48,389.85],[183.19,387.88],[128.81,356.71],[113.58,353.59],[119.57,347.67],[132.02,335.34],[168.17,299.57],[178.91,289.14],[313.7,398.33]]]},
+  {id:'lote_2',nombre:'Costa 3',ha:0.49,cultivo:'Pastizal natural',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:323.1,cy:530.4,rings:[[[343.49,563.97],[338.38,570.0],[333.37,561.75],[330.03,550.88],[327.79,543.35],[325.01,536.09],[321.94,527.45],[317.75,521.03],[314.41,514.06],[311.34,513.23],[304.65,506.81],[302.03,504.75],[304.63,501.5],[305.64,500.08],[309.0,500.98],[312.88,504.35],[315.73,509.27],[319.62,515.23],[321.18,519.9],[323.51,524.82],[326.36,531.04],[328.17,534.41],[329.99,538.3],[331.28,541.41],[332.84,546.85],[335.17,551.25],[337.24,555.66],[343.49,563.97]]]},
+  {id:'lote_3',nombre:'04',ha:13.83,cultivo:'Agricultura',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:319.8,cy:165.1,rings:[[[403.02,171.16],[334.58,239.33],[305.12,211.74],[262.38,169.89],[259.26,166.84],[261.38,164.5],[323.89,94.97],[325.5,96.44],[403.02,171.16]]]},
+  {id:'lote_4',nombre:'Monte 12',ha:0.22,cultivo:'Forestal',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:417.7,cy:269.5,rings:[[[422.65,272.61],[414.34,279.17],[407.79,272.28],[416.7,262.99],[422.07,257.39],[422.65,272.61]]]},
+  {id:'lote_5',nombre:'11',ha:8.2,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:439.0,cy:286.3,rings:[[[465.28,273.42],[491.73,298.71],[448.6,346.58],[434.96,333.28],[434.83,333.16],[406.08,305.13],[391.86,291.17],[409.02,273.58],[414.34,279.17],[422.65,272.61],[422.07,257.39],[455.13,221.72],[483.55,248.68],[465.28,273.42]]]},
+  {id:'lote_6',nombre:'Corrales',ha:0.33,cultivo:'Corrales',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:341.5,cy:256.0,rings:[[[350.75,255.57],[347.05,259.58],[344.22,260.74],[333.83,261.67],[326.39,254.95],[337.57,243.64],[350.75,255.57]]]},
+  {id:'lote_7',nombre:'01',ha:21.58,cultivo:'Agricultura',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:241.0,cy:122.1,rings:[[[317.21,94.9],[315.08,98.1],[311.02,104.48],[303.19,112.6],[264.62,153.49],[256.21,164.22],[224.89,199.31],[204.53,223.19],[171.94,192.16],[135.27,158.0],[145.4,147.61],[141.07,144.08],[165.72,121.17],[248.95,33.48],[257.01,39.3],[266.08,46.49],[292.12,70.99],[317.21,94.9]]]},
+  {id:'lote_8',nombre:'14',ha:6.36,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:302.4,cy:475.7,rings:[[[360.13,437.46],[311.89,485.32],[314.07,488.8],[313.41,489.0],[310.51,490.76],[309.38,491.89],[308.45,493.44],[307.0,495.41],[304.94,497.47],[303.18,498.92],[302.69,499.28],[300.44,497.35],[296.56,494.24],[290.86,490.36],[282.05,482.58],[275.83,472.99],[273.75,466.52],[271.68,462.11],[270.9,451.49],[270.11,444.33],[314.49,398.92],[360.13,437.46]]]},
+  {id:'lote_9',nombre:'Monte chanchos',ha:1.96,cultivo:'Forestal',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:309.6,cy:227.6,rings:[[[325.06,256.29],[266.49,201.53],[279.6,187.65],[297.06,204.95],[336.5,242.68],[337.57,243.64],[325.06,256.29]]]},
+  {id:'lote_10',nombre:'05',ha:3.96,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:290.4,cy:244.7,rings:[[[323.94,255.24],[298.67,280.82],[238.92,230.72],[266.49,201.53],[323.94,255.24]]]},
+  {id:'lote_11',nombre:'10',ha:9.53,cultivo:'Agricultura',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:295.5,cy:331.1,rings:[[[245.41,340.68],[261.44,323.59],[282.24,301.59],[299.76,281.74],[299.83,281.8],[370.14,341.38],[340.17,371.61],[315.11,396.89],[245.41,340.68]]]},
+  {id:'lote_12',nombre:'09',ha:6.04,cultivo:'Agricultura',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:352.7,cy:279.7,rings:[[[326.39,254.95],[333.83,261.67],[335.55,261.51],[344.22,260.74],[347.05,259.58],[350.75,255.57],[356.35,260.64],[373.99,276.67],[390.55,291.72],[405.42,305.78],[394.25,317.05],[370.14,341.38],[335.17,311.75],[299.83,281.8],[326.39,254.95]]]},
+  {id:'lote_13',nombre:'15',ha:2.28,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:488.5,cy:338.3,rings:[[[469.47,365.31],[448.9,346.24],[491.73,298.71],[508.66,314.48],[506.43,317.87],[506.43,318.8],[506.12,319.94],[505.09,321.49],[502.61,324.17],[497.96,329.03],[494.35,333.37],[492.07,337.29],[488.36,343.69],[487.94,345.04],[487.22,346.28],[485.46,348.34],[481.54,353.4],[480.09,354.85],[476.48,358.36],[472.66,362.7],[469.47,365.31]]]},
+  {id:'lote_14',nombre:'03',ha:13.78,cultivo:'Agricultura',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:80.4,cy:300.5,rings:[[[153.62,310.09],[112.31,353.4],[109.46,352.75],[98.57,347.57],[90.28,343.17],[79.14,337.98],[71.36,335.13],[64.63,332.8],[59.7,330.21],[56.85,324.77],[52.97,318.81],[49.86,308.96],[46.23,302.48],[44.71,300.27],[41.04,294.97],[37.16,290.04],[34.57,286.41],[34.57,280.97],[35.6,274.49],[36.12,268.53],[34.64,260.95],[79.3,215.42],[98.39,232.82],[102.83,236.92],[138.19,269.64],[167.94,297.16],[167.29,297.82],[153.62,310.09]]]},
+  {id:'lote_16',nombre:'Cañada',ha:0.45,cultivo:'Cañada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:378.0,cy:441.0,rings:[[[471.02,366.74],[470.7,367.45],[470.29,367.77],[468.63,369.1],[467.08,370.65],[464.81,370.86],[463.47,371.99],[461.3,373.64],[459.95,375.09],[458.2,376.54],[456.34,378.39],[453.96,380.15],[451.9,382.01],[449.83,382.11],[447.46,383.14],[445.39,385.0],[443.95,386.14],[441.88,387.9],[439.09,389.96],[437.44,391.2],[436.61,392.44],[434.96,394.3],[434.03,395.33],[432.48,396.88],[430.73,398.22],[429.08,399.98],[426.39,401.32],[424.84,402.04],[422.98,403.18],[421.02,404.83],[419.16,406.38],[417.82,407.62],[416.06,408.96],[414.51,410.41],[412.65,412.06],[411.11,413.71],[409.8,415.12],[409.76,415.16],[408.63,416.61],[407.28,418.16],[405.53,419.19],[403.57,420.74],[401.6,422.7],[398.82,425.18],[395.72,428.17],[393.86,429.72],[392.21,431.07],[390.14,432.72],[387.35,433.85],[385.6,434.89],[384.77,436.44],[383.84,438.29],[382.81,440.36],[381.88,441.6],[380.74,442.12],[379.61,442.53],[378.26,442.53],[376.71,443.05],[375.27,443.56],[374.03,444.59],[372.27,446.14],[370.93,448.0],[369.28,449.55],[367.01,450.69],[365.56,452.03],[364.42,453.27],[362.88,454.72],[361.64,455.44],[359.88,455.95],[357.81,456.78],[356.78,457.4],[355.85,458.85],[355.34,460.29],[354.72,461.33],[353.89,462.36],[352.75,463.29],[351.62,464.01],[350.48,464.42],[349.55,465.04],[348.73,466.28],[348.42,467.83],[347.9,469.17],[346.87,470.31],[345.63,471.34],[344.6,472.17],[343.67,473.41],[342.12,474.13],[340.98,474.13],[340.26,474.85],[339.64,476.2],[338.81,477.23],[337.57,477.64],[336.44,477.85],[334.27,478.78],[332.62,479.81],[331.38,481.05],[329.83,482.08],[328.79,483.22],[327.97,484.46],[327.04,485.18],[325.08,485.9],[323.11,486.83],[321.25,487.56],[319.5,488.18],[318.26,488.8],[316.71,489.31],[314.96,489.73],[313.3,490.55],[311.65,491.48],[310.31,492.82],[309.48,493.86],[308.76,494.99],[307.52,496.54],[306.69,497.88],[305.66,500.05],[304.63,501.5],[302.03,504.75],[299.35,502.63],[298.29,501.88],[301.32,500.26],[303.18,498.92],[304.94,497.47],[307.0,495.41],[308.45,493.44],[309.38,491.89],[310.51,490.76],[313.41,489.0],[315.78,488.28],[317.54,487.45],[320.64,486.32],[322.6,484.98],[324.77,484.46],[327.04,483.84],[328.38,481.77],[329.21,480.43],[331.58,478.99],[333.75,477.64],[335.51,476.71],[337.99,476.4],[339.02,475.16],[339.64,473.51],[341.39,472.79],[342.84,472.48],[344.49,470.72],[345.83,469.48],[346.45,468.04],[347.49,465.25],[349.55,463.7],[351.1,462.98],[352.55,462.05],[353.99,459.78],[354.41,457.92],[355.34,456.68],[357.92,455.54],[360.09,454.61],[361.84,453.89],[363.08,452.65],[364.94,450.79],[366.39,449.45],[367.73,448.93],[369.28,447.9],[370.83,445.94],[373.41,443.36],[375.47,441.91],[377.02,441.39],[379.3,441.39],[380.74,440.77],[381.98,439.43],[384.15,434.89],[385.08,433.54],[386.42,432.82],[389.21,431.58],[391.17,430.45],[393.75,428.38],[396.03,426.21],[400.78,421.98],[405.73,416.92],[406.25,415.06],[407.18,413.71],[408.02,413.23],[409.87,412.17],[411.42,411.24],[417.3,406.59],[423.09,401.63],[430.0,395.64],[433.93,391.92],[435.79,390.79],[438.27,389.24],[441.37,386.76],[444.46,384.28],[447.36,381.8],[449.94,380.87],[453.96,377.88],[458.61,374.37],[462.64,370.13],[465.33,368.79],[468.11,366.41],[468.56,366.05],[469.47,365.31],[471.02,366.74]]]},
+  {id:'lote_17',nombre:'Calles internas',ha:0.06,cultivo:'Calles internas',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:401.7,cy:280.1,rings:[[[409.02,273.58],[391.86,291.17],[390.74,290.06],[407.79,272.28],[409.02,273.58]]]},
+  {id:'lote_18',nombre:'Calles internas',ha:0.14,cultivo:'Calles internas',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:399.5,cy:406.8,rings:[[[395.71,400.23],[408.02,413.23],[407.18,413.71],[406.25,415.06],[405.73,416.92],[405.32,417.34],[390.19,403.61],[392.07,402.56],[392.35,402.81],[397.75,397.96],[397.77,397.97],[395.71,400.23]]]},
+  {id:'lote_19',nombre:'08',ha:9.42,cultivo:'Avena',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:391.7,cy:226.9,rings:[[[455.13,221.72],[390.74,290.06],[350.85,254.55],[338.35,242.86],[334.58,239.33],[403.02,171.16],[406.12,174.16],[455.13,221.72]]]},
+  {id:'lote_20',nombre:'06',ha:8.51,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:238.4,cy:274.6,rings:[[[238.92,230.72],[266.85,254.14],[290.8,274.22],[297.52,279.86],[297.81,280.11],[243.22,338.92],[240.85,337.0],[234.04,331.51],[213.35,314.83],[180.08,288.0],[184.99,282.92],[193.02,275.02],[225.56,242.98],[232.39,236.39],[234.63,238.74],[240.63,232.74],[238.92,230.72]]]},
+  {id:'lote_21',nombre:'Costa 2',ha:3.89,cultivo:'Pastizal natural',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:218.9,cy:424.2,rings:[[[107.89,357.63],[111.89,353.3],[113.51,353.67],[113.58,353.59],[128.81,356.71],[183.19,387.88],[201.31,390.78],[232.49,393.68],[281.46,431.49],[279.59,433.42],[269.99,443.29],[270.9,451.49],[271.68,462.11],[273.75,466.52],[275.83,472.99],[282.05,482.58],[290.86,490.36],[296.56,494.24],[300.44,497.35],[302.69,499.28],[301.32,500.26],[298.29,501.88],[290.98,496.77],[285.4,492.59],[278.99,487.57],[273.41,482.27],[269.23,479.2],[266.16,471.39],[265.88,467.77],[265.32,463.31],[265.6,456.61],[265.05,451.59],[261.7,439.6],[258.07,434.58],[251.94,428.17],[243.57,421.75],[237.16,415.9],[232.7,412.55],[228.51,410.6],[224.05,410.04],[219.31,408.64],[212.62,406.69],[206.48,404.74],[197.83,404.74],[189.75,403.62],[183.05,401.39],[176.36,398.88],[169.67,395.54],[164.09,391.63],[154.89,388.57],[152.1,386.33],[147.36,379.36],[145.68,375.46],[141.22,371.0],[135.92,367.65],[131.74,365.42],[121.14,363.19],[108.87,358.17],[107.89,357.63]]]},
+  {id:'lote_22',nombre:'02',ha:12.66,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:160.8,cy:222.5,rings:[[[222.62,242.32],[167.94,297.16],[142.2,273.42],[109.08,242.88],[79.3,215.42],[135.27,158.0],[163.74,184.41],[166.28,186.77],[165.0,188.34],[195.05,216.49],[222.62,242.32]]]},
+  {id:'lote_23',nombre:'Costa 1',ha:0.83,cultivo:'Pastizal natural',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:59.9,cy:316.1,rings:[[[111.89,353.3],[107.89,357.63],[100.78,353.7],[92.14,349.24],[86.28,345.62],[80.7,343.11],[74.01,342.27],[65.09,339.76],[57.0,335.3],[52.54,330.0],[49.19,324.7],[48.63,319.4],[46.4,311.31],[43.89,305.74],[39.99,300.72],[34.69,296.26],[32.74,289.56],[30.78,283.15],[32.18,278.96],[32.74,273.67],[30.0,265.3],[34.64,260.95],[36.12,268.53],[35.6,274.49],[34.57,280.97],[34.57,286.41],[37.16,290.04],[41.04,294.97],[46.23,302.48],[49.86,308.96],[52.97,318.81],[56.85,324.77],[59.7,330.21],[64.63,332.8],[71.36,335.13],[79.14,337.98],[90.28,343.17],[98.57,347.57],[109.46,352.75],[111.89,353.3]]]},
+  {id:'lote_24',nombre:'Casa',ha:0.36,cultivo:'Casa',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:219.9,cy:231.4,rings:[[[223.87,240.93],[205.9,224.36],[213.76,216.39],[232.06,234.54],[223.87,240.93]]]},
+  {id:'lote_25',nombre:'Corrales molino petiso',ha:0.13,cultivo:'Corrales',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:389.1,cy:397.2,rings:[[[385.05,395.28],[389.47,390.08],[389.9,390.49],[397.75,397.96],[392.35,402.81],[392.07,402.56],[390.19,403.61],[383.77,397.97],[385.13,395.64],[385.05,395.28]]]},
+  {id:'lote_26',nombre:'Caballos',ha:2.1,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:242.2,cy:208.2,rings:[[[231.58,234.06],[214.24,216.87],[258.23,169.19],[275.32,186.59],[231.58,234.06]]]},
+  {id:'lote_27',nombre:'17',ha:1.09,cultivo:'Agropirón',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:421.7,cy:397.0,rings:[[[440.03,387.82],[438.27,389.24],[435.79,390.79],[433.93,391.92],[430.0,395.64],[423.09,401.63],[417.3,406.59],[411.42,411.24],[409.87,412.17],[408.02,413.23],[395.71,400.23],[397.77,397.97],[423.09,372.39],[440.03,387.82]]]},
+  {id:'lote_28',nombre:'08',ha:3.81,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:289.7,cy:233.4,rings:[[[259.26,166.84],[262.38,169.89],[278.59,185.76],[285.07,192.11],[305.12,211.74],[338.35,242.86],[350.85,254.55],[390.74,290.06],[406.08,305.13],[434.83,333.16],[434.83,333.16],[434.96,333.28],[448.65,346.63],[448.26,347.07],[428.2,327.32],[406.92,307.2],[406.17,306.43],[366.67,346.19],[353.44,359.56],[353.5,359.61],[351.62,361.49],[351.58,361.44],[315.32,398.08],[270.11,444.33],[269.99,443.29],[313.7,398.33],[178.91,289.14],[168.17,299.57],[113.51,353.67],[112.31,353.4],[153.62,310.09],[167.29,297.82],[222.62,242.32],[222.37,242.1],[204.72,225.56],[165.0,188.34],[166.28,186.77],[204.53,223.19],[224.89,199.31],[255.4,165.13],[256.21,164.22],[256.37,164.02],[264.62,153.49],[303.19,112.6],[311.02,104.48],[315.08,98.1],[317.21,94.9],[292.12,70.99],[266.08,46.49],[257.01,39.3],[248.95,33.48],[251.88,30.55],[252.43,30.0],[253.05,30.57],[323.89,94.97],[261.38,164.5],[259.26,166.84]],[[258.23,169.19],[214.24,216.87],[213.76,216.39],[205.9,224.36],[223.87,240.93],[232.06,234.54],[231.58,234.06],[275.32,186.59],[258.23,169.19]],[[240.63,232.74],[234.63,238.74],[232.39,236.39],[225.56,242.98],[184.99,282.92],[180.08,288.0],[240.85,337.0],[243.22,338.92],[297.81,280.11],[298.67,280.82],[323.94,255.24],[325.06,256.29],[299.83,281.8],[299.76,281.74],[282.24,301.59],[261.44,323.59],[245.41,340.68],[315.11,396.89],[350.88,360.8],[352.75,358.92],[405.42,305.78],[390.55,291.72],[356.35,260.64],[337.57,243.64],[336.5,242.68],[297.06,204.95],[284.56,192.56],[279.6,187.65],[238.92,230.72],[240.63,232.74]]]},
+  {id:'lote_29',nombre:'Callejon',ha:0.22,cultivo:'Callejón',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:380.9,cy:388.7,rings:[[[352.51,360.6],[387.27,390.87],[389.6,388.33],[398.31,397.42],[397.77,397.97],[389.47,390.08],[388.15,391.63],[386.43,393.66],[385.05,395.28],[385.13,395.64],[383.77,397.97],[390.19,403.61],[405.32,417.34],[404.63,418.04],[381.61,397.01],[385.47,392.82],[350.89,362.14],[351.58,361.44],[351.62,361.49],[352.51,360.6]]]},
+  {id:'lote_30',nombre:'12',ha:5.78,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:389.8,cy:356.8,rings:[[[387.27,390.87],[352.51,360.6],[353.5,359.61],[353.44,359.56],[366.67,346.19],[406.17,306.43],[406.92,307.2],[428.2,327.32],[448.2,347.01],[398.31,397.42],[389.6,388.33],[387.27,390.87]]]},
+  {id:'lote_31',nombre:'Cañada',ha:0.11,cultivo:'Cañada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:490.7,cy:340.8,rings:[[[471.02,366.74],[469.47,365.31],[472.66,362.7],[476.48,358.36],[480.09,354.85],[481.54,353.4],[485.46,348.34],[487.22,346.28],[487.94,345.04],[488.36,343.69],[492.07,337.29],[494.35,333.37],[497.96,329.03],[502.61,324.17],[505.09,321.49],[506.12,319.94],[506.43,318.8],[506.43,317.87],[508.66,314.48],[509.44,315.52],[506.53,321.49],[504.67,323.66],[501.16,327.27],[499.82,328.62],[498.99,329.65],[498.8,330.42],[497.93,331.68],[497.75,331.71],[495.48,333.88],[493.83,336.46],[492.69,339.25],[490.73,342.04],[488.98,345.24],[487.74,347.51],[485.88,349.89],[484.22,351.65],[482.16,354.33],[478.34,358.05],[475.65,360.94],[473.9,363.21],[471.73,365.17],[471.02,366.74]]]},
+  {id:'lote_32',nombre:'13',ha:3.96,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:361.4,cy:399.9,rings:[[[391.66,406.19],[360.13,437.46],[314.49,398.92],[315.32,398.08],[350.89,362.14],[385.47,392.82],[381.61,397.01],[391.66,406.19]]]},
+  {id:'lote_33',nombre:'16',ha:1.25,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:450.9,cy:368.4,rings:[[[469.47,365.31],[468.56,366.05],[468.11,366.41],[467.85,366.64],[465.33,368.79],[462.64,370.13],[458.61,374.37],[453.96,377.88],[450.61,380.38],[449.94,380.87],[447.36,381.8],[444.46,384.28],[441.37,386.76],[440.03,387.82],[423.09,372.39],[423.17,372.31],[423.21,372.26],[448.2,347.01],[448.26,347.07],[448.65,346.63],[448.6,346.58],[448.9,346.24],[469.47,365.31]]]},
+  {id:'lote_34',nombre:'18',ha:1.93,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:356.3,cy:457.5,rings:[[[315.78,488.28],[314.07,488.8],[311.89,485.32],[360.13,437.46],[391.66,406.19],[404.63,418.04],[400.78,421.98],[396.03,426.21],[393.75,428.38],[391.17,430.45],[389.21,431.58],[386.42,432.82],[385.08,433.54],[384.15,434.89],[381.98,439.43],[380.74,440.77],[379.3,441.39],[377.02,441.39],[375.47,441.91],[373.41,443.36],[372.45,444.31],[370.83,445.94],[370.56,446.27],[369.28,447.9],[367.73,448.93],[366.39,449.45],[364.94,450.79],[363.08,452.65],[361.84,453.89],[360.09,454.61],[357.92,455.54],[355.34,456.68],[354.41,457.92],[353.99,459.78],[352.55,462.05],[351.1,462.98],[349.55,463.7],[347.49,465.25],[346.45,468.04],[345.83,469.48],[344.49,470.72],[342.84,472.48],[341.39,472.79],[339.64,473.51],[339.02,475.16],[337.99,476.4],[335.51,476.71],[333.75,477.64],[331.58,478.99],[329.21,480.43],[328.38,481.77],[327.04,483.84],[324.77,484.46],[322.6,484.98],[320.64,486.32],[317.54,487.45],[315.78,488.28]]]},
+  {id:'lote_35',nombre:'19',ha:3.54,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:496.4,cy:343.8,rings:[[[499.62,393.26],[471.02,366.74],[471.73,365.17],[473.9,363.21],[475.65,360.94],[478.34,358.05],[482.16,354.33],[484.22,351.65],[485.88,349.89],[487.74,347.51],[488.98,345.24],[490.73,342.04],[492.69,339.25],[493.83,336.46],[495.48,333.88],[497.75,331.71],[497.93,331.68],[498.8,330.42],[498.99,329.65],[499.82,328.62],[501.16,327.27],[504.67,323.66],[506.53,321.49],[509.44,315.52],[518.69,324.36],[519.85,325.64],[527.39,332.37],[543.21,347.13],[499.62,393.26]]]},
+  {id:'lote_36',nombre:'20',ha:4.62,cultivo:'Pastura implantada',riego:'natural',obs:'',siembra:'',supSem:0,historial:[],creadoPor:'sistema',creadoEn:'2025-01-01',cx:447.0,cy:392.7,rings:[[[449.81,448.24],[411.05,413.78],[411.11,413.71],[412.65,412.06],[414.51,410.41],[416.06,408.96],[417.82,407.62],[419.16,406.38],[421.02,404.83],[422.98,403.18],[424.84,402.04],[426.39,401.32],[429.08,399.98],[430.73,398.22],[432.48,396.88],[434.03,395.33],[434.96,394.3],[436.61,392.44],[437.44,391.2],[439.09,389.96],[441.88,387.9],[443.95,386.14],[445.39,385.0],[447.46,383.14],[449.83,382.11],[451.9,382.01],[453.96,380.15],[456.34,378.39],[458.2,376.54],[459.95,375.09],[461.3,373.64],[463.47,371.99],[464.81,370.86],[467.08,370.65],[468.63,369.1],[469.95,368.04],[470.29,367.77],[470.7,367.45],[471.02,366.74],[499.62,393.26],[498.09,394.88],[497.39,396.15],[483.68,412.2],[449.81,448.24]]]}
+];
+
+// ══════════════════════════════════════════════════
+// STORAGE — JSONBin.io para datos compartidos entre los 3 usuarios
+// ══════════════════════════════════════════════════
+// INSTRUCCIONES DE CONFIGURACIÓN (una sola vez):
+// 1. Entrá a https://jsonbin.io y creá una cuenta gratis
+// 2. Creá un nuevo Bin con este contenido inicial: {"animales":[],"lotes":[],"ingresos":[],"egresos":[],"actlog":[]}
+// 3. Copiá el BIN_ID (el número largo en la URL) y tu API Key
+// 4. Pegálos abajo en las dos constantes
+
+const JSONBIN_ID  = '69c31644b7ec241ddc9d4721'
+const JSONBIN_KEY = '$2a$10$3eBCq7IajzjbgLJREYw.rOwJQqcZJY6tHAO5VFaDospaUmUo29dtO'
+const USE_JSONBIN = JSONBIN_ID !== 'TU_BIN_ID_AQUI'
+
+const DB_LOCAL_KEY = 'gc_lasmulas_local'  // cache local para modo offline
+
+let DB = {animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[]}
+let syncStatus = 'local'  // 'local' | 'syncing' | 'ok' | 'error'
+let syncDebounce = null
+
+function dbEmpty(){
+  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[]}
+}
+
+// Cargar desde JSONBin (o localStorage como fallback)
+async function dbLoad(){
+  if(!USE_JSONBIN){
+    try{
+      const v=localStorage.getItem(DB_LOCAL_KEY)
+      return v?JSON.parse(v):dbEmpty()
+    }catch{return dbEmpty()}
+  }
+  setSyncStatus('syncing')
+  try{
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,{
+      headers:{'X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'}
+    })
+    if(!r.ok)throw new Error('HTTP '+r.status)
+    const data=await r.json()
+    // Merge: keep shapefile lotes if bin has none
+    if(!data.lotes||data.lotes.length===0)data.lotes=LOTES_SHAPE.map(l=>({...l}))
+    localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(data))
+    setSyncStatus('ok')
+    return data
+  }catch(e){
+    console.warn('JSONBin load failed, using local cache:',e)
+    setSyncStatus('error')
+    try{const v=localStorage.getItem(DB_LOCAL_KEY);return v?JSON.parse(v):dbEmpty()}
+    catch{return dbEmpty()}
+  }
+}
+
+// Guardar en JSONBin (debounced 800ms para no hacer requests en cada tecla)
+function dbSave(db){
+  localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(db))
+  if(!USE_JSONBIN)return
+  clearTimeout(syncDebounce)
+  syncDebounce=setTimeout(()=>dbPush(db),800)
+}
+
+async function dbPush(db){
+  setSyncStatus('syncing')
+  try{
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'},
+      body:JSON.stringify(db)
+    })
+    if(!r.ok)throw new Error('HTTP '+r.status)
+    setSyncStatus('ok')
+  }catch(e){
+    console.warn('JSONBin save failed:',e)
+    setSyncStatus('error')
+  }
+}
+
+// Auto-refresh cada 30s para ver cambios de otros usuarios
+let autoRefreshInterval = null
+function startAutoRefresh(){
+  stopAutoRefresh()
+  if(!USE_JSONBIN)return
+  autoRefreshInterval=setInterval(async()=>{
+    const fresh=await dbLoad()
+    // Only re-render if data actually changed
+    if(JSON.stringify(fresh)!==JSON.stringify(DB)){
+      DB=fresh
+      render()
+      toast('Datos actualizados por otro usuario','🔄')
+    }
+  },30000)
+}
+function stopAutoRefresh(){clearInterval(autoRefreshInterval)}
+
+function setSyncStatus(s){
+  syncStatus=s
+  const el=document.getElementById('sync-indicator')
+  if(!el)return
+  const icons={local:'💾',syncing:'⏳',ok:'☁️',error:'⚠️'}
+  const labels={local:'Local',syncing:'Sincronizando…',ok:'Sincronizado',error:'Sin conexión'}
+  el.textContent=icons[s]+' '+labels[s]
+  el.style.color=s==='error'?'var(--rust)':s==='ok'?'var(--green2)':s==='syncing'?'var(--gold)':'var(--hide)'
+}
+
+function logActivity(action,detail){
+  if(!currentUser)return
+  DB.actlog.unshift({uid:currentUser.id,uname:currentUser.name,uemoji:currentUser.emoji,action,detail,ts:new Date().toISOString()})
+  if(DB.actlog.length>200)DB.actlog=DB.actlog.slice(0,200)
+  dbSave(DB)
+}
+
+// ── LABELS ──────────────────────────────────────────────────────
+const ITL={capitalizacion:'Capitalización',venta:'Venta Hacienda',aporte:'Aporte Socio',otro:'Otro'}
+const ITB={capitalizacion:'b-gold',venta:'b-green',aporte:'b-sky',otro:'b-bark'}
+const ECL={produccion:'Producción',compra:'Compra Hacienda',sueldo:'Sueldos',sanidad:'Sanidad',combustible:'Combustible',infraestructura:'Infraestructura',impuestos:'Impuestos',otro:'Otro'}
+const ECB={produccion:'b-bark',compra:'b-gold',sueldo:'b-sky',sanidad:'b-green',combustible:'b-bark',infraestructura:'b-bark',impuestos:'b-red',otro:'b-bark'}
+function $m(n){return'$'+Number(n).toLocaleString('es-AR',{maximumFractionDigits:0})}
+function $fd(d){if(!d)return'-';const[y,m,dd]=d.split('-');return`${dd}/${m}/${y}`}
+function sum(arr,fn){return arr.reduce((s,x)=>s+fn(x),0)}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+const today=()=>new Date().toISOString().split('T')[0]
+const curMonth=()=>new Date().toISOString().slice(0,7)
+function barChart(items){
+  if(!items.length)return'<div style="color:var(--hide);font-size:12px">Sin datos</div>'
+  const mx=Math.max(...items.map(i=>i.val),1)
+  return items.map(i=>`<div class="bar-row"><div class="bar-label"><span>${i.label}</span><span>${i.cnt?i.val:$m(i.val)}</span></div><div class="bar-track"><div class="bar-fill" style="width:${(i.val/mx*100).toFixed(1)}%;background:${i.color||'var(--green)'}"></div></div></div>`).join('')
+}
+function toast(msg,icon='✅'){
+  const c=document.getElementById('toasts'),el=document.createElement('div')
+  el.className='toast-item';el.innerHTML=`<span>${icon}</span><span>${msg}</span>`
+  c.appendChild(el);setTimeout(()=>{el.classList.add('out');setTimeout(()=>el.remove(),300)},3000)
+}
+function clr(...ids){ids.forEach(id=>{const e=document.getElementById(id);if(e)e.value=''})}
+function isAdmin(){return currentUser&&currentUser.role==='admin'}
+
+// ══════════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════════
+function buildLoginScreen(){
+  const cont=document.getElementById('login-users')
+  cont.innerHTML=USERS.map(u=>`
+    <div class="user-btn" onclick="selectUser('${u.id}')">
+      <div class="user-avatar" style="background:${u.bg}">${u.emoji}</div>
+      <div class="user-info">
+        <div class="u-name">${u.name}</div>
+        <div class="u-role">${u.role==='admin'?'Administrador':'Operario'} · PIN requerido</div>
+      </div>
+      <div style="margin-left:auto;font-size:18px;opacity:.3">›</div>
+    </div>`).join('')
+}
+function selectUser(id){
+  pendingUser=USERS.find(u=>u.id===id)
+  document.getElementById('pin-section').style.display='block'
+  document.getElementById('pin-inp').value=''
+  document.getElementById('pin-msg').textContent=`PIN para ${pendingUser.name}`
+  document.getElementById('pin-inp').focus()
+}
+function checkPin(){
+  const v=document.getElementById('pin-inp').value
+  if(v.length===4){
+    if(v===pendingUser.pin){
+      currentUser=pendingUser
+      pendingUser=null
+      document.getElementById('login-screen').style.display='none'
+      document.getElementById('app').style.display='flex'
+      document.getElementById('hamburger').style.display=''
+      initApp()
+    } else {
+      document.getElementById('pin-msg').textContent='PIN incorrecto ❌'
+      document.getElementById('pin-inp').value=''
+    }
+  }
+}
+document.getElementById('pin-inp').addEventListener('keydown',e=>{if(e.key==='Enter')checkPin()})
+function logout(){
+  currentUser=null
+  stopAutoRefresh()
+  document.getElementById('login-screen').style.display='flex'
+  document.getElementById('app').style.display='none'
+  document.getElementById('hamburger').style.display='none'
+  document.getElementById('pin-section').style.display='none'
+  buildLoginScreen()
+}
+async function initApp(){
+  // sidebar user display
+  document.getElementById('sb-uname').textContent=currentUser.name
+  document.getElementById('sb-urole').textContent='Administrador'
+  document.getElementById('sb-avatar').textContent=currentUser.emoji
+  document.getElementById('sb-avatar').style.background=currentUser.bg
+  document.getElementById('sb-date').textContent=new Date().toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'})
+  // all users are admin
+  document.getElementById('nav-usuarios').classList.remove('admin-only')
+  document.getElementById('nav-usuarios').onclick=function(){nav('usuarios',this)}
+  // load data
+  DB = await dbLoad()
+  logActivity('Inicio de sesión','Ingresó al sistema')
+  render()
+  startAutoRefresh()
+  setSyncStatus(USE_JSONBIN?'ok':'local')
+}
+buildLoginScreen()
+
+// ══════════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════════
+function toggleSidebar(){
+  document.querySelector('.sidebar').classList.toggle('open')
+}
+function nav(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
+  document.getElementById('p-'+id).classList.add('active');el.classList.add('active');render()
+  if(id==='scanner')setTimeout(()=>document.getElementById('scan-inp').focus(),100)
+  if(id==='campo')setTimeout(renderMapLotes,50)
+  // close sidebar on mobile after navigation
+  if(window.innerWidth<=700)document.querySelector('.sidebar').classList.remove('open')
+}
+function openM(id){document.getElementById(id).classList.add('open');const f=document.querySelector('#'+id+' input[type=date]');if(f&&!f.value)f.value=today();if(id==='m-animal')populateLoteSelect()}
+function closeM(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.mb').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)b.classList.remove('open')}))
+function togCap(){document.getElementById('fg-cap').style.display=document.getElementById('a-origen').value==='capitalizacion'?'block':'none'}
+
+// ══════════════════════════════════════════════════
+// STOCK
+// ══════════════════════════════════════════════════
+let stockTab='todos'
+function setStockTab(t,el){stockTab=t;document.querySelectorAll('#p-stock .tab').forEach(x=>x.classList.remove('active'));el.classList.add('active');renderStock()}
+function populateLoteSelect(){
+  const sel=document.getElementById('a-lote');if(!sel)return
+  sel.innerHTML='<option value="">Sin lote</option>'+DB.lotes.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')
+}
+function saveAnimal(rec){
+  if(!rec){
+    const car=document.getElementById('a-car').value.trim(),cat=document.getElementById('a-cat').value
+    if(!car||!cat){alert('Completá carimbo y categoría.');return}
+    rec={id:uid(),carimbo:car.toUpperCase(),categoria:cat,raza:document.getElementById('a-raza').value,peso:parseFloat(document.getElementById('a-peso').value)||0,origen:document.getElementById('a-origen').value,capitalista:document.getElementById('a-cap').value,loteId:document.getElementById('a-lote').value,fecha:document.getElementById('a-fecha').value,estado:document.getElementById('a-estado').value,obs:document.getElementById('a-obs').value,creadoPor:currentUser.id}
+    closeM('m-animal');clr('a-car','a-raza','a-peso','a-cap','a-obs')
+    document.getElementById('a-cat').value='';document.getElementById('a-origen').value='propio';document.getElementById('fg-cap').style.display='none'
+  }
+  DB.animales.push(rec);dbSave(DB);logActivity('Alta animal',`Carimbo ${rec.carimbo}`);render();return rec
+}
+function delAnimal(id){
+  if(!isAdmin()){toast('Solo el administrador puede eliminar','🔒');return}
+  if(confirm('¿Eliminar?')){const a=DB.animales.find(x=>x.id===id);DB.animales=DB.animales.filter(a=>a.id!==id);dbSave(DB);logActivity('Baja animal',`Carimbo ${a?.carimbo}`);render()}
+}
+function renderStock(){
+  const s=(document.getElementById('stock-search')||{value:''}).value.toLowerCase()
+  const cf=(document.getElementById('stock-cat')||{value:''}).value
+  const ef=(document.getElementById('stock-estado')||{value:''}).value
+  let d=DB.animales
+  if(stockTab==='propio')d=d.filter(a=>a.origen==='propio')
+  if(stockTab==='capitalizacion')d=d.filter(a=>a.origen==='capitalizacion')
+  if(s)d=d.filter(a=>(a.carimbo+a.raza+(a.capitalista||'')).toLowerCase().includes(s))
+  if(cf)d=d.filter(a=>a.categoria===cf)
+  if(ef)d=d.filter(a=>a.estado===ef)
+  const loteMap=Object.fromEntries(DB.lotes.map(l=>[l.id,l.nombre]))
+  const tb=document.getElementById('stock-tbody');if(!tb)return
+  tb.innerHTML=d.length?d.map(a=>`<tr><td><strong>${a.carimbo}</strong></td><td>${a.categoria}</td><td>${a.raza||'-'}</td><td>${a.peso||'-'}</td><td><span class="badge ${a.origen==='propio'?'b-green':'b-gold'}">${a.origen==='propio'?'Propio':'Cap.'}</span></td><td>${a.loteId?loteMap[a.loteId]||'-':'-'}</td><td><span class="badge ${a.estado==='activo'?'b-green':a.estado==='vendido'?'b-sky':'b-red'}">${a.estado}</span></td><td><button class="icon-btn" onclick="delAnimal('${a.id}')">🗑</button></td></tr>`).join(''):'<tr class="empty-row"><td colspan="8">Sin animales</td></tr>'
+  const act=DB.animales.filter(a=>a.estado==='activo')
+  const el=document.getElementById('stock-stats');if(!el)return
+  el.innerHTML=`<div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Activos</div><div class="sc-value">${act.length}</div></div><div class="sc"><span class="sc-icon">🏠</span><div class="sc-label">Propios</div><div class="sc-value g">${act.filter(a=>a.origen==='propio').length}</div></div><div class="sc"><span class="sc-icon">🤝</span><div class="sc-label">Capitalización</div><div class="sc-value o">${act.filter(a=>a.origen==='capitalizacion').length}</div></div><div class="sc"><span class="sc-icon">📦</span><div class="sc-label">Total Reg.</div><div class="sc-value">${DB.animales.length}</div></div>`
+}
+
+// ══════════════════════════════════════════════════
+// FIELD MAP
+// ══════════════════════════════════════════════════
+let mapTool='draw', drawPoints=[], selectedLoteId=null
+const SVG_W=900, SVG_H=600
+
+// Extended color palette for all real uses from Las Mulas shapefile
+const CULTIVO_COLORS={
+  'Soja':'#7CBE60','Maíz':'#E8C440','Trigo':'#D4A849','Girasol':'#F5C542',
+  'Sorgo':'#C67B3A','Alfalfa':'#5BA36A','Pastizal natural':'#8BBF6A',
+  'Pastura implantada':'#4A9C5D','Barbecho':'#A08B6E','Forestal':'#2D6B3A',
+  'Avena':'#C8B84A','Agropirón':'#B8A83A','Agricultura':'#D4884A',
+  'Corrales':'#8B7355','Casa':'#C8A87A','Calles internas':'#B0A090',
+  'Callejón':'#B0A090','Cañada':'#6A9BB8','CN':'#8BBF6A',
+  'Monte':'#2D6B3A','Otro':'#8FAE95','':'#9EAF95'
+}
+
+function setTool(t){
+  mapTool=t;['select','draw','pan'].forEach(x=>{document.getElementById('tool-'+x).classList.toggle('active',x===t)})
+  const svg=document.getElementById('field-svg')
+  svg.style.cursor=t==='draw'?'crosshair':t==='pan'?'grab':'default'
+  if(t!=='draw'){drawPoints=[];document.getElementById('draw-preview-line').setAttribute('points','');document.getElementById('draw-cursor').style.display='none'}
+  if(t!=='select'){selectedLoteId=null;document.getElementById('btn-del-lote').style.display='none';renderMapLotes()}
+}
+function getSVGPoint(e){
+  const svg=document.getElementById('field-svg'),r=svg.getBoundingClientRect()
+  const vb=svg.viewBox.baseVal
+  return{x:(e.clientX-r.left)/r.width*vb.width,y:(e.clientY-r.top)/r.height*vb.height}
+}
+document.getElementById('field-svg').addEventListener('click',e=>{
+  if(mapTool!=='draw')return
+  const pt=getSVGPoint(e)
+  if(drawPoints.length>2){
+    const first=drawPoints[0]
+    const dx=pt.x-first.x,dy=pt.y-first.y
+    if(Math.sqrt(dx*dx+dy*dy)<16){finishDraw();return}
+  }
+  drawPoints.push(pt)
+  updateDrawPreview(pt)
+})
+document.getElementById('field-svg').addEventListener('mousemove',e=>{
+  if(mapTool!=='draw'||!drawPoints.length)return
+  const pt=getSVGPoint(e),cur=document.getElementById('draw-cursor')
+  cur.style.display='block';cur.setAttribute('cx',pt.x);cur.setAttribute('cy',pt.y)
+  const all=[...drawPoints,pt]
+  document.getElementById('draw-preview-line').setAttribute('points',all.map(p=>p.x+','+p.y).join(' '))
+})
+document.getElementById('field-svg').addEventListener('dblclick',e=>{if(mapTool==='draw'&&drawPoints.length>2){e.preventDefault();finishDraw()}})
+function updateDrawPreview(){
+  document.getElementById('draw-preview-line').setAttribute('points',drawPoints.map(p=>p.x+','+p.y).join(' '))
+}
+function finishDraw(){
+  if(drawPoints.length<3){toast('Necesitás al menos 3 puntos para crear un lote','⚠️');return}
+  const pts=drawPoints.map(p=>([Math.round(p.x),Math.round(p.y)]))
+  drawPoints=[];document.getElementById('draw-preview-line').setAttribute('points','');document.getElementById('draw-cursor').style.display='none'
+  document.getElementById('l-id').value=''
+  document.getElementById('l-points').value=JSON.stringify([pts])  // rings format: array of rings
+  document.getElementById('m-lote-title').textContent='Nuevo Lote'
+  openM('m-lote')
+}
+function polygonArea(pts){
+  // Shoelace formula → approx ha (scale: 1px ≈ field_total_ha/SVG_area)
+  let a=0
+  for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length;a+=pts[i].x*pts[j].y;a-=pts[j].x*pts[i].y}
+  return Math.abs(a)/2
+}
+function svgHa(pts){
+  // Each px² at 800×480 represents field/total ratio. We use a simple scale:
+  // 800×480 canvas = 100 virtual ha. So 1px² = 100/(800*480) ha
+  const area=polygonArea(pts)
+  return Math.round(area*(100/(800*480))*10)/10
+}
+function polyCentroid(pts){
+  let x=0,y=0;pts.forEach(p=>{x+=p.x;y+=p.y});return{x:x/pts.length,y:y/pts.length}
+}
+
+function saveLote(){
+  const nombre=document.getElementById('l-nombre').value.trim()
+  const ha=parseFloat(document.getElementById('l-ha').value)||0
+  if(!nombre){alert('Ingresá el nombre del lote.');return}
+  const ptsRaw=document.getElementById('l-points').value
+  const rings=ptsRaw?JSON.parse(ptsRaw):[]
+  // compute centroid from first ring
+  let cx=450,cy=300
+  if(rings.length&&rings[0].length){
+    const outerRing=rings[0]
+    cx=Math.round(outerRing.reduce((s,p)=>s+p[0],0)/outerRing.length)
+    cy=Math.round(outerRing.reduce((s,p)=>s+p[1],0)/outerRing.length)
+  }
+  const existId=document.getElementById('l-id').value
+  const lote={
+    id:existId||uid(),nombre,ha,
+    color:document.getElementById('l-color').value,
+    riego:document.getElementById('l-riego').value,
+    cultivo:document.getElementById('l-cultivo').value,
+    siembra:document.getElementById('l-siembra').value,
+    supSem:parseFloat(document.getElementById('l-sup-sem').value)||0,
+    obs:document.getElementById('l-obs').value,
+    rings,cx,cy,
+    historial:[],creadoPor:currentUser.id,creadoEn:today()
+  }
+  if(existId){
+    const idx=DB.lotes.findIndex(l=>l.id===existId)
+    if(idx>=0){lote.historial=DB.lotes[idx].historial||[];DB.lotes[idx]=lote}
+    logActivity('Editó lote',nombre)
+  } else {
+    DB.lotes.push(lote)
+    logActivity('Creó lote',nombre)
+  }
+  dbSave(DB);closeM('m-lote');clr('l-nombre','l-ha','l-siembra','l-sup-sem','l-obs')
+  document.getElementById('l-id').value='';document.getElementById('l-points').value=''
+  renderMapLotes();renderLoteGrid();toast(`Lote "${nombre}" guardado`,'🗺');render()
+}
+function editLote(id){
+  if(!isAdmin()){toast('Solo el administrador puede editar lotes','🔒');return}
+  const l=DB.lotes.find(x=>x.id===id);if(!l)return
+  document.getElementById('m-lote-title').textContent='Editar Lote'
+  document.getElementById('l-id').value=l.id
+  document.getElementById('l-nombre').value=l.nombre
+  document.getElementById('l-ha').value=l.ha
+  document.getElementById('l-color').value=l.color||'#4A7C59'
+  document.getElementById('l-riego').value=l.riego||'natural'
+  document.getElementById('l-cultivo').value=l.cultivo||''
+  document.getElementById('l-siembra').value=l.siembra||''
+  document.getElementById('l-sup-sem').value=l.supSem||''
+  document.getElementById('l-obs').value=l.obs||''
+  document.getElementById('l-points').value=JSON.stringify(l.rings||[])
+  openM('m-lote')
+}
+function deleteSelectedLote(){
+  if(!isAdmin()){toast('Solo el administrador puede eliminar lotes','🔒');return}
+  if(!selectedLoteId)return
+  const l=DB.lotes.find(x=>x.id===selectedLoteId);if(!l)return
+  if(!confirm(`¿Eliminar el lote "${l.nombre}"?`))return
+  DB.lotes=DB.lotes.filter(x=>x.id!==selectedLoteId)
+  dbSave(DB);logActivity('Eliminó lote',l.nombre)
+  selectedLoteId=null;document.getElementById('btn-del-lote').style.display='none'
+  renderMapLotes();renderLoteGrid();render();toast(`Lote "${l.nombre}" eliminado`,'🗑')
+}
+function zoomMap(factor){
+  const svg=document.getElementById('field-svg'),vb=svg.viewBox.baseVal
+  const cx=vb.x+vb.width/2,cy=vb.y+vb.height/2
+  const nw=vb.width/factor,nh=vb.height/factor
+  svg.setAttribute('viewBox',`${cx-nw/2} ${cy-nh/2} ${nw} ${nh}`)
+}
+function resetMapView(){document.getElementById('field-svg').setAttribute('viewBox',`0 0 900 600`)}
+
+function renderMapLotes(){
+  const g=document.getElementById('map-lotes');if(!g)return
+  g.innerHTML=''
+  // Remove old tooltip
+  const oldTT=document.getElementById('map-tooltip');if(oldTT)oldTT.remove()
+  DB.lotes.forEach(l=>{
+    const rings=l.rings||[]
+    if(!rings.length||!rings[0].length)return
+    const color=CULTIVO_COLORS[l.cultivo||'']||l.color||'#4A9C5D'
+    rings.forEach((ring,ri)=>{
+      if(!ring.length)return
+      const pts=ring.map(p=>Array.isArray(p)?p[0]+','+p[1]:p.x+','+p.y).join(' ')
+      const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon')
+      poly.setAttribute('points',pts)
+      poly.setAttribute('fill',ri===0?color:'#e8f4e8')
+      poly.classList.add('lote-polygon')
+      if(l.id===selectedLoteId)poly.classList.add('selected')
+      if(ri===0){
+        poly.addEventListener('click',()=>selectLote(l.id))
+        poly.setAttribute('title',`${l.nombre} — ${l.ha} ha`)
+      }
+      g.appendChild(poly)
+    })
+    // label
+    const cx=l.cx||0,cy=l.cy||0
+    if(l.ha>=0.5){
+      const txt=document.createElementNS('http://www.w3.org/2000/svg','text')
+      txt.setAttribute('x',cx);txt.setAttribute('y',cy-(l.ha>=2?5:3));txt.setAttribute('text-anchor','middle')
+      txt.classList.add('lote-label');txt.style.fontSize=l.ha>=5?'12px':'9.5px'
+      txt.textContent=l.nombre;g.appendChild(txt)
+    }
+    if(l.ha>=2){
+      const txt2=document.createElementNS('http://www.w3.org/2000/svg','text')
+      txt2.setAttribute('x',cx);txt2.setAttribute('y',cy+9);txt2.setAttribute('text-anchor','middle')
+      txt2.classList.add('lote-ha');txt2.textContent=l.ha+' ha';g.appendChild(txt2)
+    }
+  })
+  // legend
+  const leg=document.getElementById('map-legend');if(!leg)return
+  const cultivos=[...new Set(DB.lotes.filter(l=>l.rings&&l.rings.length&&l.rings[0].length).map(l=>l.cultivo||'').filter(Boolean))]
+  leg.innerHTML='<span style="font-size:11px;color:var(--hide)">Uso del suelo:</span>'+cultivos.map(c=>`<div class="legend-item"><div class="legend-dot" style="background:${CULTIVO_COLORS[c]||'#888'}"></div><span style="font-size:11px">${c}</span></div>`).join('')
+}
+function selectLote(id){
+  selectedLoteId=id
+  // only show delete button in select tool mode
+  document.getElementById('btn-del-lote').style.display=(mapTool==='select'&&isAdmin())?'block':'none'
+  renderMapLotes()
+  showLoteDetail(id)
+  // scroll lote detail into view
+  setTimeout(()=>{const el=document.getElementById('lote-detail');if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'})},100)
+}
+function renderLoteGrid(){
+  const el=document.getElementById('lote-grid');if(!el)return
+  const totalHa=DB.lotes.reduce((s,l)=>s+(l.ha||0),0)
+  document.getElementById('campo-total-ha').textContent=`Total: ${totalHa.toFixed(1)} ha`
+  if(!DB.lotes.length){el.innerHTML='<div style="color:var(--hide);font-size:13px;padding:12px 0">Sin lotes. Usá la herramienta ✏️ para dibujar, o el botón + Nuevo Lote.</div>';return}
+  el.innerHTML=DB.lotes.map(l=>{
+    const color=CULTIVO_COLORS[l.cultivo||'']||l.color||'#4A9C5D'
+    const animales=DB.animales.filter(a=>a.loteId===l.id&&a.estado==='activo').length
+    return`<div class="lote-card ${selectedLoteId===l.id?'sel':''}" onclick="selectLote('${l.id}')">
+      <div class="lc-actions"><button class="icon-btn" onclick="event.stopPropagation();editLote('${l.id}')">✏️</button></div>
+      <div><span class="lc-color" style="background:${color}"></span><span class="lc-name">${l.nombre}</span></div>
+      <div class="lc-ha">${l.ha} ha · ${l.riego||'natural'}</div>
+      <div class="lc-crop">${l.cultivo||'Sin cultivo'}</div>
+      ${animales?`<div style="font-size:11px;color:var(--sky);margin-top:3px">🐄 ${animales} cabezas</div>`:''}
+    </div>`}).join('')
+}
+function showLoteDetail(id){
+  const l=DB.lotes.find(x=>x.id===id);if(!l)return
+  const el=document.getElementById('lote-detail');el.style.display='block'
+  document.getElementById('ld-title').textContent=`📍 ${l.nombre}`
+  const animales=DB.animales.filter(a=>a.loteId===id&&a.estado==='activo')
+  document.getElementById('ld-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">
+      <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Superficie</div><div style="font-size:16px;font-weight:600;margin-top:2px">${l.ha} ha</div></div>
+      <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Cultivo actual</div><div style="font-size:14px;margin-top:2px;color:var(--green);font-weight:500">${l.cultivo||'Sin cultivo'}</div></div>
+      <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Siembra</div><div style="font-size:13px;margin-top:2px">${$fd(l.siembra)}</div></div>
+      <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Sup. sembrada</div><div style="font-size:13px;margin-top:2px">${l.supSem||'—'} ha</div></div>
+      <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Agua / Riego</div><div style="font-size:13px;margin-top:2px">${l.riego||'natural'}</div></div>
+      <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Hacienda activa</div><div style="font-size:16px;font-weight:600;margin-top:2px;color:var(--sky)">${animales.length} cab.</div></div>
+    </div>
+    ${l.obs?`<div style="font-size:12.5px;color:var(--hide);background:var(--parch);padding:10px 12px;border-radius:7px;margin-bottom:12px">📝 ${l.obs}</div>`:''}
+    ${animales.length?`<div style="font-size:12px;font-weight:600;color:var(--bark);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Animales en este lote</div><div style="display:flex;flex-wrap:wrap;gap:6px">${animales.map(a=>`<span style="background:rgba(74,126,155,.1);color:var(--sky);padding:3px 9px;border-radius:8px;font-size:11px;font-weight:600">${a.carimbo}</span>`).join('')}</div>`:''}
+  `
+}
+function closeLoteDetail(){document.getElementById('lote-detail').style.display='none';selectedLoteId=null;renderMapLotes()}
+
+// ══════════════════════════════════════════════════
+// SCANNER
+// ══════════════════════════════════════════════════
+let scanMode='buscar',scanCount=0,scanLog=[]
+function setScanMode(m,el){
+  scanMode=m;document.querySelectorAll('.smc').forEach(c=>c.classList.remove('active'));el.classList.add('active')
+  const lbl={buscar:'Consultar',ingreso:'Alta Rápida',egreso:'Marcar Vendido',pesaje:'Actualizar Peso'}
+  document.getElementById('scan-mode-lbl').textContent=lbl[m]
+  document.getElementById('pesaje-extra').style.display=m==='pesaje'?'block':'none'
+  document.getElementById('scan-result').style.display='none'
+  document.getElementById('scan-status').innerHTML='<span style="color:rgba(255,255,255,.4)">Esperando…</span>'
+  document.getElementById('scan-inp').focus()
+}
+document.getElementById('scan-inp').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();processScan()}})
+function processScan(){
+  const inp=document.getElementById('scan-inp'),raw=inp.value.trim();if(!raw)return
+  const car=raw.toUpperCase();inp.value=''
+  inp.classList.remove('flash');void inp.offsetWidth;inp.classList.add('flash');inp.focus()
+  const existing=DB.animales.find(a=>a.carimbo.toUpperCase()===car)
+  let statusHtml='',logAct='',logCls=''
+  if(scanMode==='buscar'){
+    if(existing){statusHtml=`<span style="color:#7FFFD4">✅ ${car} — ${existing.categoria} · ${existing.estado}</span>`;showScanResult(existing);logAct='Consultado';logCls='ok'}
+    else{statusHtml=`<span style="color:#FFB3A7">❌ ${car} no está en el rodeo</span>`;document.getElementById('scan-result').style.display='none';logAct='No encontrado';logCls='err'}
+  } else if(scanMode==='ingreso'){
+    if(existing){statusHtml=`<span style="color:#FFB3A7">⚠️ ${car} ya registrado (${existing.estado})</span>`;showScanResult(existing);logAct='Ya existe';logCls='err'}
+    else{const n={id:uid(),carimbo:car,categoria:'',raza:'',peso:0,origen:'propio',capitalista:'',loteId:'',fecha:today(),estado:'activo',obs:'Alta vía escáner',creadoPor:currentUser.id};DB.animales.push(n);dbSave(DB);logActivity('Alta escáner',car);statusHtml=`<span style="color:#7FFFD4">✅ ${car} dado de alta</span>`;showScanResult(n);logAct='Alta creada';logCls='ok';scanCount++;toast(`${car} dado de alta`,'🐄');render()}
+  } else if(scanMode==='egreso'){
+    if(!existing){statusHtml=`<span style="color:#FFB3A7">❌ ${car} no encontrado</span>`;logAct='No encontrado';logCls='err'}
+    else if(existing.estado!=='activo'){statusHtml=`<span style="color:#FFB3A7">⚠️ Ya está como "${existing.estado}"</span>`;logAct='Ya dado de baja';logCls='err'}
+    else{existing.estado='vendido';dbSave(DB);logActivity('Venta escáner',car);statusHtml=`<span style="color:#7FFFD4">✅ ${car} marcado como vendido</span>`;showScanResult(existing);logAct='Marcado vendido';logCls='ok';scanCount++;toast(`${car} vendido`,'📤');render()}
+  } else if(scanMode==='pesaje'){
+    const pw=parseFloat(document.getElementById('scan-peso').value)||0
+    if(!pw){document.getElementById('scan-status').innerHTML='<span style="color:#FFB3A7">⚠️ Ingresá el peso</span>';return}
+    if(!existing){statusHtml=`<span style="color:#FFB3A7">❌ ${car} no encontrado</span>`;logAct='No encontrado';logCls='err'}
+    else{existing.peso=pw;dbSave(DB);logActivity('Pesaje',`${car} → ${pw} kg`);statusHtml=`<span style="color:#7FFFD4">✅ ${car} — Peso: ${pw} kg</span>`;showScanResult(existing);logAct=`Peso: ${pw} kg`;logCls='ok';scanCount++;toast(`Peso de ${car}: ${pw} kg`,'⚖️');render()}
+  }
+  document.getElementById('scan-status').innerHTML=statusHtml
+  scanLog.unshift({car,act:logAct,cls:logCls,t:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})})
+  if(scanLog.length>15)scanLog.pop()
+  document.getElementById('scan-log').innerHTML=scanLog.map(l=>`<div style="background:rgba(255,255,255,.08);border-radius:5px;padding:5px 9px;margin-bottom:3px;font-size:11px;display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600;letter-spacing:.04em">${l.car}</span><span style="opacity:.65;font-size:10px">${l.act}</span><span style="opacity:.3;font-size:10px">${l.t}</span></div>`).join('')
+  document.getElementById('scan-counter').textContent=`${scanCount} operaciones`
+}
+function showScanResult(a){
+  document.getElementById('scan-result').style.display='block'
+  const loteMap=Object.fromEntries(DB.lotes.map(l=>[l.id,l.nombre]))
+  document.getElementById('scan-result-grid').innerHTML=`
+    <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Carimbo</div><div style="font-size:16px;font-weight:700;margin-top:2px">${a.carimbo}</div></div>
+    <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Categoría</div><div style="font-size:13px;margin-top:3px">${a.categoria||'Sin cat.'}</div></div>
+    <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Raza</div><div style="font-size:13px;margin-top:3px">${a.raza||'-'}</div></div>
+    <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Peso</div><div style="font-size:13px;margin-top:3px">${a.peso?a.peso+' kg':'-'}</div></div>
+    <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Lote</div><div style="font-size:13px;margin-top:3px">${a.loteId?loteMap[a.loteId]||'-':'-'}</div></div>
+    <div><div style="font-size:10px;color:var(--hide);text-transform:uppercase;letter-spacing:.08em">Estado</div><div style="margin-top:3px"><span class="badge ${a.estado==='activo'?'b-green':a.estado==='vendido'?'b-sky':'b-red'}">${a.estado}</span></div></div>`
+}
+function clearScanLog(){scanLog=[];scanCount=0;document.getElementById('scan-log').innerHTML='';document.getElementById('scan-counter').textContent='0 operaciones';document.getElementById('scan-result').style.display='none';document.getElementById('scan-status').innerHTML='<span style="color:rgba(255,255,255,.4)">Registro limpiado…</span>'}
+
+// ══════════════════════════════════════════════════
+// INGRESOS
+// ══════════════════════════════════════════════════
+function saveIng(){
+  const imp=parseFloat(document.getElementById('i-imp').value)||0,conc=document.getElementById('i-conc').value.trim()
+  if(!imp||!conc){alert('Completá concepto e importe.');return}
+  const rec={id:uid(),fecha:document.getElementById('i-fecha').value,tipo:document.getElementById('i-tipo').value,concepto:conc,contra:document.getElementById('i-contra').value,importe:imp,nro:document.getElementById('i-nro').value,uid:currentUser.id,uname:currentUser.name}
+  DB.ingresos.push(rec);dbSave(DB);logActivity('Ingreso registrado',`${conc} ${$m(imp)}`);closeM('m-ing');clr('i-conc','i-contra','i-imp','i-nro');render()
+}
+function delIng(id){
+  if(!isAdmin()){toast('Solo el administrador puede eliminar','🔒');return}
+  if(confirm('¿Eliminar?')){DB.ingresos=DB.ingresos.filter(i=>i.id!==id);dbSave(DB);render()}
+}
+function renderIngresos(){
+  const tf=(document.getElementById('ing-tipo-f')||{value:''}).value,mf=(document.getElementById('ing-mes')||{value:''}).value
+  let d=[...DB.ingresos].sort((a,b)=>b.fecha.localeCompare(a.fecha))
+  if(tf)d=d.filter(i=>i.tipo===tf);if(mf)d=d.filter(i=>i.fecha.startsWith(mf))
+  const tb=document.getElementById('ing-tbody');if(!tb)return
+  tb.innerHTML=d.length?d.map(i=>`<tr><td>${$fd(i.fecha)}</td><td><span class="badge ${ITB[i.tipo]||'b-bark'}">${ITL[i.tipo]||i.tipo}</span></td><td>${i.concepto}</td><td>${i.contra||'-'}</td><td style="font-size:11px;color:var(--hide)">${i.uname||'-'}</td><td style="text-align:right" class="money-pos">${$m(i.importe)}</td><td><button class="icon-btn" onclick="delIng('${i.id}')">🗑</button></td></tr>`).join(''):'<tr class="empty-row"><td colspan="7">Sin ingresos</td></tr>'
+  const el=document.getElementById('ing-stats');if(!el)return
+  el.innerHTML=`<div class="sc"><span class="sc-icon">💹</span><div class="sc-label">Total</div><div class="sc-value g">${$m(sum(DB.ingresos,i=>i.importe))}</div></div><div class="sc"><span class="sc-icon">🤝</span><div class="sc-label">Capitalización</div><div class="sc-value g">${$m(sum(DB.ingresos.filter(i=>i.tipo==='capitalizacion'),i=>i.importe))}</div></div><div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Ventas</div><div class="sc-value g">${$m(sum(DB.ingresos.filter(i=>i.tipo==='venta'),i=>i.importe))}</div></div><div class="sc"><span class="sc-icon">👥</span><div class="sc-label">Aportes</div><div class="sc-value g">${$m(sum(DB.ingresos.filter(i=>i.tipo==='aporte'),i=>i.importe))}</div></div>`
+}
+
+// ══════════════════════════════════════════════════
+// EGRESOS
+// ══════════════════════════════════════════════════
+function saveEgr(){
+  const imp=parseFloat(document.getElementById('e-imp').value)||0,det=document.getElementById('e-det').value.trim()
+  if(!imp||!det){alert('Completá detalle e importe.');return}
+  const rec={id:uid(),fecha:document.getElementById('e-fecha').value,cat:document.getElementById('e-cat').value,detalle:det,prov:document.getElementById('e-prov').value,importe:imp,nro:document.getElementById('e-nro').value,uid:currentUser.id,uname:currentUser.name}
+  DB.egresos.push(rec);dbSave(DB);logActivity('Egreso registrado',`${det} ${$m(imp)}`);closeM('m-egr');clr('e-det','e-prov','e-imp','e-nro');render()
+}
+function delEgr(id){
+  if(!isAdmin()){toast('Solo el administrador puede eliminar','🔒');return}
+  if(confirm('¿Eliminar?')){DB.egresos=DB.egresos.filter(e=>e.id!==id);dbSave(DB);render()}
+}
+function renderEgresos(){
+  const cf=(document.getElementById('egr-cat-f')||{value:''}).value,mf=(document.getElementById('egr-mes')||{value:''}).value
+  let d=[...DB.egresos].sort((a,b)=>b.fecha.localeCompare(a.fecha))
+  if(cf)d=d.filter(e=>e.cat===cf);if(mf)d=d.filter(e=>e.fecha.startsWith(mf))
+  const tb=document.getElementById('egr-tbody');if(!tb)return
+  tb.innerHTML=d.length?d.map(e=>`<tr><td>${$fd(e.fecha)}</td><td><span class="badge ${ECB[e.cat]||'b-bark'}">${ECL[e.cat]||e.cat}</span></td><td>${e.detalle}</td><td>${e.prov||'-'}</td><td style="font-size:11px;color:var(--hide)">${e.uname||'-'}</td><td style="text-align:right" class="money-neg">${$m(e.importe)}</td><td><button class="icon-btn" onclick="delEgr('${e.id}')">🗑</button></td></tr>`).join(''):'<tr class="empty-row"><td colspan="7">Sin egresos</td></tr>'
+  const el=document.getElementById('egr-stats');if(!el)return
+  el.innerHTML=`<div class="sc"><span class="sc-icon">📤</span><div class="sc-label">Total</div><div class="sc-value r">${$m(sum(DB.egresos,e=>e.importe))}</div></div><div class="sc"><span class="sc-icon">🌾</span><div class="sc-label">Producción</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='produccion'),e=>e.importe))}</div></div><div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Compra Hac.</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='compra'),e=>e.importe))}</div></div><div class="sc"><span class="sc-icon">👷</span><div class="sc-label">Sueldos</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='sueldo'),e=>e.importe))}</div></div>`
+}
+
+// ══════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════
+function renderDashboard(){
+  const act=DB.animales.filter(a=>a.estado==='activo')
+  const ing=sum(DB.ingresos,i=>i.importe),egr=sum(DB.egresos,e=>e.importe),bal=ing-egr
+  const m=curMonth(),ingM=sum(DB.ingresos.filter(i=>i.fecha.startsWith(m)),i=>i.importe),egrM=sum(DB.egresos.filter(e=>e.fecha.startsWith(m)),e=>e.importe)
+  const totalHa=DB.lotes.reduce((s,l)=>s+(l.ha||0),0)
+  const el=document.getElementById('dash-stats');if(!el)return
+  el.innerHTML=`<div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Cabezas Activas</div><div class="sc-value">${act.length}</div><div class="sc-sub">${act.filter(a=>a.origen==='propio').length} prop · ${act.filter(a=>a.origen==='capitalizacion').length} cap.</div></div><div class="sc"><span class="sc-icon">🗺</span><div class="sc-label">Lotes / Hectáreas</div><div class="sc-value">${DB.lotes.length}</div><div class="sc-sub">${totalHa.toFixed(1)} ha totales</div></div><div class="sc"><span class="sc-icon">💰</span><div class="sc-label">Ingresos (mes)</div><div class="sc-value g">${$m(ingM)}</div></div><div class="sc"><span class="sc-icon">📤</span><div class="sc-label">Egresos (mes)</div><div class="sc-value r">${$m(egrM)}</div></div><div class="sc"><span class="sc-icon">⚖️</span><div class="sc-label">Balance Total</div><div class="sc-value ${bal>=0?'g':'r'}">${$m(bal)}</div></div>`
+  const cats={};act.forEach(a=>{cats[a.categoria]=(cats[a.categoria]||0)+1})
+  const colors=['var(--green)','var(--straw)','var(--sky)','var(--rust)','var(--gold)','var(--bark)']
+  const rc=document.getElementById('dash-rodeo');if(!rc)return
+  rc.innerHTML=Object.keys(cats).length?barChart(Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>({label:`${k} (${v})`,val:v,color:colors[i%colors.length],cnt:true}))):'<div style="color:var(--hide);font-size:12px">Sin animales</div>'
+  const bc=document.getElementById('dash-balance');if(!bc)return
+  bc.innerHTML=barChart([{label:'Ingresos',val:ing,color:'var(--green)'},{label:'Egresos',val:egr,color:'var(--rust)'}])
+  const movs=[...DB.ingresos.map(i=>({f:i.fecha,t:'Ingreso',c:i.concepto||ITL[i.tipo],v:i.importe,d:1})),...DB.egresos.map(e=>({f:e.fecha,t:'Egreso',c:e.detalle||ECL[e.cat],v:e.importe,d:-1}))].sort((a,b)=>b.f.localeCompare(a.f)).slice(0,8)
+  const tb=document.getElementById('dash-movs');if(!tb)return
+  tb.innerHTML=movs.length?movs.map(m=>`<tr><td>${$fd(m.f)}</td><td><span class="badge ${m.d>0?'b-green':'b-red'}">${m.t}</span></td><td>${m.c||'-'}</td><td style="text-align:right" class="${m.d>0?'money-pos':'money-neg'}">${m.d>0?'+':'-'}${$m(m.v)}</td></tr>`).join(''):'<tr class="empty-row"><td colspan="4">Sin movimientos</td></tr>'
+  renderActivityWidget()
+}
+function renderActivityWidget(){
+  const el=document.getElementById('dash-activity');if(!el)return
+  const items=DB.actlog.slice(0,8)
+  if(!items.length){el.innerHTML='<div style="color:var(--hide);font-size:12px">Sin actividad registrada</div>';return}
+  const u=Object.fromEntries(USERS.map(u=>[u.id,u]))
+  el.innerHTML=items.map(a=>{
+    const usr=u[a.uid]||{emoji:'👤',bg:'rgba(0,0,0,.1)'}
+    const dt=new Date(a.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+    return`<div class="act-item"><div class="act-avatar" style="background:${usr.bg}">${usr.emoji}</div><div class="act-text"><strong>${a.uname}</strong> ${a.action}<br><span style="font-size:11px;color:var(--hide)">${a.detail}</span></div><div class="act-time">${dt}</div></div>`
+  }).join('')
+}
+
+// ══════════════════════════════════════════════════
+// REPORTES
+// ══════════════════════════════════════════════════
+function renderReportes(){
+  const ing=sum(DB.ingresos,i=>i.importe),egr=sum(DB.egresos,e=>e.importe)
+  const act=DB.animales.filter(a=>a.estado==='activo').length,caps=DB.animales.filter(a=>a.estado==='activo'&&a.origen==='capitalizacion').length
+  const rent=egr>0?(((ing-egr)/egr)*100).toFixed(1):0
+  const totalHa=DB.lotes.reduce((s,l)=>s+(l.ha||0),0)
+  const el=document.getElementById('rep-stats');if(!el)return
+  el.innerHTML=`<div class="sc"><span class="sc-icon">📊</span><div class="sc-label">Rentabilidad</div><div class="sc-value ${rent>=0?'g':'r'}">${rent}%</div></div><div class="sc"><span class="sc-icon">🤝</span><div class="sc-label">% Capitalización</div><div class="sc-value o">${act>0?((caps/act)*100).toFixed(1):0}%</div></div><div class="sc"><span class="sc-icon">💵</span><div class="sc-label">Costo/Cabeza</div><div class="sc-value r">${act>0?$m(egr/act):'$0'}</div></div><div class="sc"><span class="sc-icon">🗺</span><div class="sc-label">Total Hectáreas</div><div class="sc-value">${totalHa.toFixed(1)}</div></div>`
+  const ec={};DB.egresos.forEach(e=>{ec[e.cat]=(ec[e.cat]||0)+e.importe})
+  document.getElementById('rep-egr-cat').innerHTML=barChart(Object.entries(ec).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:ECL[k]||k,val:v,color:'var(--rust)'})))
+  const it={};DB.ingresos.forEach(i=>{it[i.tipo]=(it[i.tipo]||0)+i.importe})
+  document.getElementById('rep-ing-tipo').innerHTML=barChart(Object.entries(it).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:ITL[k]||k,val:v,color:'var(--green)'})))
+  const rc={};DB.animales.filter(a=>a.estado==='activo').forEach(a=>{rc[a.categoria]=(rc[a.categoria]||0)+1})
+  const colors=['var(--green)','var(--straw)','var(--sky)','var(--rust)','var(--gold)','var(--bark)']
+  document.getElementById('rep-rodeo-cat').innerHTML=Object.keys(rc).length?barChart(Object.entries(rc).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>({label:`${k} · ${v}`,val:v,color:colors[i%colors.length],cnt:true}))):'<div style="color:var(--hide);font-size:12px">Sin animales</div>'
+  const rl=document.getElementById('rep-lotes');if(!rl)return
+  rl.innerHTML=DB.lotes.length?barChart(DB.lotes.sort((a,b)=>(b.ha||0)-(a.ha||0)).map(l=>({label:`${l.nombre} (${l.cultivo||'sin cultivo'})`,val:l.ha||0,color:CULTIVO_COLORS[l.cultivo||'']||l.color||'var(--green)'}))):'<div style="color:var(--hide);font-size:12px">Sin lotes registrados</div>'
+}
+
+// ══════════════════════════════════════════════════
+// USUARIOS
+// ══════════════════════════════════════════════════
+function renderUsuarios(){
+  const el=document.getElementById('usuarios-grid');if(!el)return
+  el.innerHTML=USERS.map(u=>{
+    const lastAct=DB.actlog.find(a=>a.uid===u.id)
+    const lastDt=lastAct?new Date(lastAct.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'Nunca'
+    const acciones=DB.actlog.filter(a=>a.uid===u.id).length
+    return`<div class="user-card">
+      <div class="user-card-avatar" style="background:${u.bg}">${u.emoji}</div>
+      <div style="flex:1">
+        <div class="uc-name">${u.name} ${u.id===currentUser?.id?'<span class="badge b-green" style="font-size:9px">Vos</span>':''}</div>
+        <div class="uc-role">${u.role==='admin'?'👑 Administrador':'🔧 Operario'} · PIN: ${u.pin}</div>
+        <div class="uc-last">Último acceso: ${lastDt}</div>
+        <div class="uc-last">${acciones} acciones registradas</div>
+      </div>
+    </div>`
+  }).join('')
+  const logEl=document.getElementById('activity-log-full');if(!logEl)return
+  const umap=Object.fromEntries(USERS.map(u=>[u.id,u]))
+  logEl.innerHTML=DB.actlog.length?DB.actlog.map(a=>{
+    const usr=umap[a.uid]||{emoji:'👤',bg:'rgba(0,0,0,.1)'}
+    const dt=new Date(a.ts).toLocaleDateString('es-AR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+    return`<div class="act-item"><div class="act-avatar" style="background:${usr.bg}">${usr.emoji}</div><div class="act-text"><strong>${a.uname}</strong> — ${a.action}<br><span style="font-size:11px;color:var(--hide)">${a.detail}</span></div><div class="act-time" style="font-size:10px;color:var(--hide);white-space:nowrap">${dt}</div></div>`
+  }).join(''):'<div style="color:var(--hide);font-size:12px">Sin actividad registrada</div>'
+}
+
+// ══════════════════════════════════════════════════
+// EXCEL
+// ══════════════════════════════════════════════════
+function exportarExcel(){
+  if(typeof XLSX==='undefined'){toast('Librería cargando…','⏳');return}
+  const wb=XLSX.utils.book_new()
+  if(document.getElementById('ex-stock').checked){
+    const lm=Object.fromEntries(DB.lotes.map(l=>[l.id,l.nombre]))
+    const rows=[['Carimbo','Categoría','Raza','Peso (kg)','Origen','Capitalista','Lote','Fecha','Estado']]
+    DB.animales.forEach(a=>rows.push([a.carimbo,a.categoria,a.raza,a.peso,a.origen,a.capitalista,a.loteId?lm[a.loteId]||'':'' ,a.fecha,a.estado]))
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:13},{wch:12},{wch:13},{wch:9},{wch:13},{wch:18},{wch:14},{wch:12},{wch:10}]
+    XLSX.utils.book_append_sheet(wb,ws,'Stock')
+  }
+  if(document.getElementById('ex-lotes').checked){
+    const rows=[['Nombre','Hectáreas','Cultivo','Siembra','Sup Sembrada','Riego','Observaciones']]
+    DB.lotes.forEach(l=>rows.push([l.nombre,l.ha,l.cultivo,l.siembra,l.supSem,l.riego,l.obs]))
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:18},{wch:10},{wch:18},{wch:12},{wch:14},{wch:16},{wch:28}]
+    XLSX.utils.book_append_sheet(wb,ws,'Lotes')
+  }
+  if(document.getElementById('ex-ing').checked){
+    const rows=[['Fecha','Tipo','Concepto','Contraparte','Importe ($)','Usuario','Comprobante']]
+    DB.ingresos.forEach(i=>rows.push([i.fecha,ITL[i.tipo]||i.tipo,i.concepto,i.contra,i.importe,i.uname||'',i.nro]))
+    if(rows.length>1)rows.push(['','','','TOTAL',`=SUM(E2:E${rows.length})`,'',''])
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:12},{wch:18},{wch:26},{wch:18},{wch:13},{wch:14},{wch:13}]
+    XLSX.utils.book_append_sheet(wb,ws,'Ingresos')
+  }
+  if(document.getElementById('ex-egr').checked){
+    const rows=[['Fecha','Categoría','Detalle','Proveedor','Importe ($)','Usuario','Comprobante']]
+    DB.egresos.forEach(e=>rows.push([e.fecha,ECL[e.cat]||e.cat,e.detalle,e.prov,e.importe,e.uname||'',e.nro]))
+    if(rows.length>1)rows.push(['','','','TOTAL',`=SUM(E2:E${rows.length})`,'',''])
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:12},{wch:18},{wch:26},{wch:18},{wch:13},{wch:14},{wch:13}]
+    XLSX.utils.book_append_sheet(wb,ws,'Egresos')
+  }
+  if(document.getElementById('ex-res').checked){
+    const ing=sum(DB.ingresos,i=>i.importe),egr=sum(DB.egresos,e=>e.importe),act=DB.animales.filter(a=>a.estado==='activo')
+    const totalHa=DB.lotes.reduce((s,l)=>s+(l.ha||0),0)
+    const rows=[
+      ['RESUMEN — Las Mulas'],['Generado',new Date().toLocaleDateString('es-AR')],['',''],
+      ['CAMPO',''],['Lotes registrados',DB.lotes.length],['Total hectáreas',totalHa],['',''],
+      ['HACIENDA',''],['Cabezas activas',act.length],['  Propias',act.filter(a=>a.origen==='propio').length],['  Capitalización',act.filter(a=>a.origen==='capitalizacion').length],['',''],
+      ['FINANZAS',''],['Total Ingresos',ing],['Total Egresos',egr],['Balance',ing-egr],['Rentabilidad s/egresos',egr>0?((ing-egr)/egr*100).toFixed(1)+'%':'—'],['',''],
+      ['LOTES Y CULTIVOS',''],...DB.lotes.map(l=>[l.nombre,l.cultivo||'Sin cultivo',l.ha+' ha']),
+    ]
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:32},{wch:18},{wch:12}]
+    XLSX.utils.book_append_sheet(wb,ws,'Resumen')
+  }
+  XLSX.writeFile(wb,'LasMulas_'+today().replace(/-/g,'')+'.xlsx')
+  logActivity('Exportó Excel','Descarga de datos')
+  toast('Archivo descargado','✅')
+}
+function descargarPlantilla(){
+  if(typeof XLSX==='undefined'){toast('Librería cargando…','⏳');return}
+  const wb=XLSX.utils.book_new()
+  const st=[['Carimbo','Categoría','Raza','Peso (kg)','Origen','Capitalista','Lote','Fecha Ingreso','Estado'],['A-0001','Novillo','Angus','320','propio','','Lote Norte','2024-03-15','activo'],['B-0022','Vaca','Hereford','480','capitalizacion','Juan Pérez','Lote Sur','2024-02-10','activo']]
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(st),'Stock')
+  const lt=[['Nombre','Hectáreas','Cultivo','Siembra','Sup Sembrada','Riego','Observaciones'],['Lote Norte','120','Soja','2024-11-01','110','natural','Suelo franco-arcilloso'],['Lote Sur','80','Maíz','2024-10-15','75','aguada','']]
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(lt),'Lotes')
+  const ig=[['Fecha','Tipo','Concepto','Contraparte','Importe ($)','Comprobante'],['2024-03-01','capitalizacion','Cobro mensual','Juan Pérez','150000','FAC-001']]
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(ig),'Ingresos')
+  const eg=[['Fecha','Categoría','Detalle','Proveedor','Importe ($)','Comprobante'],['2024-03-05','sanidad','Vacunación aftosa','Dr. García','25000','R-101']]
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(eg),'Egresos')
+  XLSX.writeFile(wb,'LasMulas_Plantilla.xlsx')
+  toast('Plantilla descargada','📋')
+}
+let importData={animales:[],lotes:[],ingresos:[],egresos:[]}
+function normDate(d){if(!d)return today();d=String(d);if(/^\d{4}-\d{2}-\d{2}$/.test(d))return d;const m=d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;if(!isNaN(d)){const dt=new Date((+d-25569)*86400*1000);return dt.toISOString().split('T')[0]}return today()}
+function previewImport(inp){
+  const file=inp.files[0];if(!file)return
+  const reader=new FileReader()
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'})
+      importData={animales:[],lotes:[],ingresos:[],egresos:[]};const summary=[]
+      if(wb.SheetNames.includes('Stock')){
+        XLSX.utils.sheet_to_json(wb.Sheets['Stock'],{defval:''}).forEach(r=>{
+          const car=String(r['Carimbo']||'').trim();if(!car)return
+          importData.animales.push({id:uid(),carimbo:car.toUpperCase(),categoria:String(r['Categoría']||''),raza:String(r['Raza']||''),peso:parseFloat(r['Peso (kg)'])||0,origen:String(r['Origen']||'propio').toLowerCase(),capitalista:String(r['Capitalista']||''),loteId:'',fecha:normDate(r['Fecha Ingreso']),estado:String(r['Estado']||'activo').toLowerCase(),obs:'',creadoPor:currentUser.id})
+        });summary.push(`🐄 ${importData.animales.length} animales`)
+      }
+      if(wb.SheetNames.includes('Lotes')){
+        XLSX.utils.sheet_to_json(wb.Sheets['Lotes'],{defval:''}).forEach(r=>{
+          const n=String(r['Nombre']||'').trim();if(!n)return
+          importData.lotes.push({id:uid(),nombre:n,ha:parseFloat(r['Hectáreas'])||0,cultivo:String(r['Cultivo']||''),siembra:normDate(r['Siembra']),supSem:parseFloat(r['Sup Sembrada'])||0,riego:String(r['Riego']||'natural'),obs:String(r['Observaciones']||''),color:'#4A7C59',points:[],historial:[],creadoPor:currentUser.id,creadoEn:today()})
+        });summary.push(`🗺 ${importData.lotes.length} lotes`)
+      }
+      if(wb.SheetNames.includes('Ingresos')){
+        XLSX.utils.sheet_to_json(wb.Sheets['Ingresos'],{defval:''}).forEach(r=>{
+          const imp=parseFloat(r['Importe ($)'])||0,conc=String(r['Concepto']||'').trim();if(!imp||!conc)return
+          const tr=String(r['Tipo']||'otro').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+          const tm={capitalizacion:'capitalizacion',venta:'venta',aporte:'aporte',otro:'otro'}
+          importData.ingresos.push({id:uid(),fecha:normDate(r['Fecha']),tipo:tm[tr]||'otro',concepto:conc,contra:String(r['Contraparte']||''),importe:imp,nro:String(r['Comprobante']||''),uid:currentUser.id,uname:currentUser.name})
+        });summary.push(`💰 ${importData.ingresos.length} ingresos`)
+      }
+      if(wb.SheetNames.includes('Egresos')){
+        XLSX.utils.sheet_to_json(wb.Sheets['Egresos'],{defval:''}).forEach(r=>{
+          const imp=parseFloat(r['Importe ($)'])||0,det=String(r['Detalle']||'').trim();if(!imp||!det)return
+          const cr=String(r['Categoría']||'otro').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+          const cm={produccion:'produccion',compra:'compra',sueldo:'sueldo',sanidad:'sanidad',combustible:'combustible',infraestructura:'infraestructura',impuestos:'impuestos',otro:'otro'}
+          importData.egresos.push({id:uid(),fecha:normDate(r['Fecha']),cat:cm[cr]||'otro',detalle:det,prov:String(r['Proveedor']||''),importe:imp,nro:String(r['Comprobante']||''),uid:currentUser.id,uname:currentUser.name})
+        });summary.push(`📤 ${importData.egresos.length} egresos`)
+      }
+      if(!summary.length){document.getElementById('import-summary').innerHTML='<span style="color:var(--rust)">⚠️ No se encontraron hojas válidas</span>';document.getElementById('import-area').style.display='block';document.getElementById('import-preview').innerHTML='';return}
+      document.getElementById('import-summary').innerHTML='Encontrado: '+summary.join(' · ')
+      let ph='<table><thead><tr><th>#</th>'
+      if(importData.animales.length){ph+='<th>Carimbo</th><th>Categoría</th><th>Origen</th></tr></thead><tbody>';importData.animales.slice(0,8).forEach((a,i)=>{ph+=`<tr><td>${i+1}</td><td><b>${a.carimbo}</b></td><td>${a.categoria}</td><td>${a.origen}</td></tr>`})}
+      else if(importData.lotes.length){ph+='<th>Nombre</th><th>Ha</th><th>Cultivo</th></tr></thead><tbody>';importData.lotes.slice(0,8).forEach((l,i)=>{ph+=`<tr><td>${i+1}</td><td><b>${l.nombre}</b></td><td>${l.ha}</td><td>${l.cultivo||'-'}</td></tr>`})}
+      else{ph+='<th>Fecha</th><th>Concepto</th><th>Importe</th></tr></thead><tbody>';importData.ingresos.slice(0,6).forEach((x,i)=>{ph+=`<tr><td>${i+1}</td><td>${$fd(x.fecha)}</td><td>${x.concepto}</td><td class="money-pos">${$m(x.importe)}</td></tr>`})}
+      ph+='</tbody></table>'
+      document.getElementById('import-preview').innerHTML=ph
+      document.getElementById('import-area').style.display='block'
+    }catch(err){toast('Error: '+err.message,'❌')}
+  }
+  reader.readAsArrayBuffer(file)
+}
+function confirmarImport(){
+  const mode=document.getElementById('import-mode').value
+  if(mode==='replace'){if(!isAdmin()){toast('Solo el administrador puede reemplazar datos','🔒');return}if(!confirm('⚠️ Reemplazará TODOS los datos. ¿Confirmar?'))return;DB.animales=importData.animales;DB.lotes=importData.lotes;DB.ingresos=importData.ingresos;DB.egresos=importData.egresos;toast('Datos reemplazados','✅')}
+  else{const cars=new Set(DB.animales.map(a=>a.carimbo.toUpperCase()));let n=0;importData.animales.forEach(a=>{if(!cars.has(a.carimbo)){DB.animales.push(a);n++}});const lnames=new Set(DB.lotes.map(l=>l.nombre));importData.lotes.forEach(l=>{if(!lnames.has(l.nombre))DB.lotes.push(l)});DB.ingresos.push(...importData.ingresos);DB.egresos.push(...importData.egresos);toast(`${n+importData.ingresos.length+importData.egresos.length} registros importados`,'📥')}
+  dbSave(DB);logActivity('Importó Excel',`Modo: ${document.getElementById('import-mode').value}`);cancelImport();render()
+}
+function cancelImport(){document.getElementById('import-area').style.display='none';document.getElementById('import-file').value='';importData={animales:[],lotes:[],ingresos:[],egresos:[]}}
+
+// ══════════════════════════════════════════════════
+// MASTER RENDER
+// ══════════════════════════════════════════════════
+async function manualSync(){
+  if(!USE_JSONBIN){toast('Configurá JSONBin para sincronizar entre dispositivos','💾');return}
+  toast('Sincronizando…','⏳')
+  const fresh = await dbLoad()
+  DB = fresh
+  render()
+  toast('Datos sincronizados','☁️')
+}
+
+function render(){
+  // DB is kept in memory and synced async via dbLoad/dbSave
+  renderDashboard();renderStock();renderIngresos();renderEgresos();renderReportes()
+  renderLoteGrid();renderMapLotes();renderUsuarios()
+}
+</script>
+</body>
+</html>
