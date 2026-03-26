@@ -9,6 +9,31 @@
 <meta name="apple-mobile-web-app-title" content="Las Mulas">
 <meta name="theme-color" content="#3D2B1A">
 <title>GestoCampo — Las Mulas</title>
+<script>
+// ── SERVICE WORKER para modo offline ──────────────
+if('serviceWorker' in navigator){
+  // Inline SW as blob URL so it works from any hosting path
+  const swCode=`
+const CACHE='gestocampo-v1';
+const ASSETS=[self.location.href.replace('sw.js',''),'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js','https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap'];
+self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS.filter(Boolean))).catch(()=>{}));self.skipWaiting()});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET')return;
+  e.respondWith(fetch(e.request).then(r=>{const rc=r.clone();caches.open(CACHE).then(c=>c.put(e.request,rc));return r}).catch(()=>caches.match(e.request)));
+});`;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  const swUrl=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl,{scope:'./'}).catch(()=>{});
+}
+// ── Sync cuando vuelve la conexión ────────────────
+window.addEventListener('online',async()=>{
+  if(typeof syncPendingChanges==='function') await syncPendingChanges();
+});
+window.addEventListener('offline',()=>{
+  if(typeof setSyncStatus==='function') setSyncStatus('local');
+});
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -315,6 +340,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <div class="nav-item" onclick="nav('campo',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>Plano del Campo</div>
     <div class="nav-sect">Hacienda</div>
     <div class="nav-item" onclick="nav('stock',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Stock Bovino</div>
+    <div class="nav-item" onclick="nav('masiva',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Carga Masiva</div>
     <div class="nav-item" onclick="nav('scanner',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>Lector Caravanas</div>
     <div class="nav-sect">Finanzas</div>
     <div class="nav-item" onclick="nav('ingresos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Ingresos</div>
@@ -440,6 +466,94 @@ tr:hover td{background:rgba(242,232,208,.4)}
   <div class="tw">
     <table><thead><tr><th>Carimbo</th><th>Categoría</th><th>Raza</th><th>Peso</th><th>Origen</th><th>Lote</th><th>Estado</th><th></th></tr></thead>
     <tbody id="stock-tbody"></tbody></table>
+  </div>
+</div>
+
+<!-- CARGA MASIVA -->
+<div class="page" id="p-masiva">
+  <div class="ph"><div><div class="ph-title">Carga Masiva</div><div class="ph-sub">Ingresá muchos animales de un tirón, con o sin carimbo</div></div></div>
+  <div class="tabs">
+    <div class="tab active" onclick="setMasivaTab('rapido',this)">📋 Formulario Rápido</div>
+    <div class="tab" onclick="setMasivaTab('rafaga',this)">📡 Bastón Ráfaga</div>
+    <div class="tab" onclick="setMasivaTab('excel',this)">📊 Desde Excel</div>
+  </div>
+  <!-- TAB RÁPIDO -->
+  <div id="mt-rapido">
+    <div class="tw" style="margin-bottom:16px">
+      <div class="tw-head"><h3>Datos del lote a cargar</h3></div>
+      <div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+        <div class="fg" style="margin:0"><label>Categoría *</label>
+          <select id="mr-cat"><option value="">Seleccionar…</option><option>Ternero/a</option><option>Novillo</option><option>Novillito</option><option>Vaca</option><option>Vaquillona</option><option>Toro</option></select>
+        </div>
+        <div class="fg" style="margin:0"><label>Raza</label><input id="mr-raza" placeholder="Angus, Hereford…"></div>
+        <div class="fg" style="margin:0"><label>Cantidad *</label><input id="mr-cant" type="number" min="1" max="500" placeholder="ej. 50"></div>
+        <div class="fg" style="margin:0"><label>Peso promedio (kg)</label><input id="mr-peso" type="number" placeholder="Opcional"></div>
+        <div class="fg" style="margin:0"><label>Origen</label>
+          <select id="mr-origen" onchange="togMrCap()"><option value="propio">Propio</option><option value="capitalizacion">Capitalización</option></select>
+        </div>
+        <div class="fg" style="margin:0;display:none" id="mr-cap-fg"><label>Capitalista</label><input id="mr-cap" placeholder="Nombre del tercero"></div>
+        <div class="fg" style="margin:0"><label>Lote / Potrero</label><select id="mr-lote"><option value="">Sin lote</option></select></div>
+        <div class="fg" style="margin:0"><label>Fecha de Ingreso</label><input id="mr-fecha" type="date"></div>
+      </div>
+      <div style="padding:0 16px 16px"><div class="fg" style="margin:0"><label>Observaciones</label><input id="mr-obs" placeholder="Notas para todos los animales…"></div></div>
+    </div>
+    <div style="background:rgba(61,107,74,.08);border:1.5px solid rgba(61,107,74,.2);border-radius:10px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:13px;font-weight:600;color:var(--earth)">Carimbos automáticos: SIN-001, SIN-002…</div>
+        <div style="font-size:12px;color:var(--hide);margin-top:3px">Continúa desde el último generado. Podés editarlos después individualmente.</div>
+      </div>
+      <button class="btn btn-p" style="font-size:14px;padding:11px 24px" onclick="ejecutarCargaMasiva()">✅ Cargar Animales</button>
+    </div>
+    <div id="mr-result" style="display:none">
+      <div class="tw"><div class="tw-head"><h3 id="mr-result-title"></h3></div><div style="padding:14px;max-height:240px;overflow-y:auto;font-size:12px" id="mr-result-body"></div></div>
+    </div>
+  </div>
+  <!-- TAB RÁFAGA -->
+  <div id="mt-rafaga" style="display:none">
+    <div class="tw" style="margin-bottom:16px">
+      <div class="tw-head"><h3>Datos comunes para todos los escaneos</h3></div>
+      <div style="padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+        <div class="fg" style="margin:0"><label>Categoría</label>
+          <select id="rf-cat"><option value="">Sin categoría</option><option>Ternero/a</option><option>Novillo</option><option>Novillito</option><option>Vaca</option><option>Vaquillona</option><option>Toro</option></select>
+        </div>
+        <div class="fg" style="margin:0"><label>Raza</label><input id="rf-raza" placeholder="Opcional"></div>
+        <div class="fg" style="margin:0"><label>Origen</label>
+          <select id="rf-origen"><option value="propio">Propio</option><option value="capitalizacion">Capitalización</option></select>
+        </div>
+        <div class="fg" style="margin:0"><label>Lote</label><select id="rf-lote"><option value="">Sin lote</option></select></div>
+      </div>
+    </div>
+    <div class="scan-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;position:relative;z-index:1">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;opacity:.7">📡 Modo Ráfaga — escaneá sin parar</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="background:rgba(255,255,255,.12);border-radius:16px;padding:3px 10px;font-size:11px" id="rf-counter">0 escaneados</div>
+          <button style="padding:5px 10px;background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.25);border-radius:6px;color:#fff;cursor:pointer;font-size:11px" onclick="clearRafaga()">✕ Limpiar</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;position:relative;z-index:1">
+        <input class="scan-inp" id="rf-inp" placeholder="Apuntá el bastón acá — cada escaneo se da de alta al instante" autocomplete="off" spellcheck="false">
+        <button style="padding:10px 14px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.28);border-radius:7px;color:#fff;cursor:pointer;font-size:12px;font-family:'Outfit',sans-serif" onclick="rafagaEnter()">Alta sin carimbo</button>
+      </div>
+      <div style="margin-top:8px;font-size:12px;position:relative;z-index:1;min-height:18px" id="rf-status"><span style="color:rgba(255,255,255,.4)">Esperando escaneo…</span></div>
+      <div style="margin-top:10px;max-height:150px;overflow-y:auto;position:relative;z-index:1" id="rf-log"></div>
+    </div>
+  </div>
+  <!-- TAB EXCEL -->
+  <div id="mt-excel" style="display:none">
+    <div class="info-box">Usá la misma plantilla de la sección <strong>Excel</strong> — hoja <strong>Stock</strong>. El campo Carimbo es opcional: si lo dejás vacío se asigna un correlativo automático <strong>SIN-XXX</strong>.</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-s" onclick="descargarPlantilla()">📋 Descargar Plantilla</button>
+      <label class="btn btn-g" style="cursor:pointer">📂 Seleccionar .xlsx<input type="file" accept=".xlsx,.xls" id="masiva-file" style="display:none" onchange="previewMasiva(this)"></label>
+    </div>
+    <div id="masiva-import-area" style="display:none">
+      <div id="masiva-import-summary" style="font-size:13px;margin-bottom:10px;color:var(--earth);font-weight:500"></div>
+      <div class="import-preview tw" id="masiva-import-preview"></div>
+      <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="confirmarMasiva()">✅ Importar</button>
+        <button class="btn btn-g" onclick="cancelMasiva()">Cancelar</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -908,6 +1022,7 @@ function nav(id,el){
   document.getElementById('p-'+id).classList.add('active');el.classList.add('active');render()
   if(id==='scanner')setTimeout(()=>document.getElementById('scan-inp').focus(),100)
   if(id==='campo')setTimeout(renderMapLotes,50)
+  if(id==='masiva'){populateMasivaLotes();const f=document.getElementById('mr-fecha');if(f&&!f.value)f.value=today()}
   // close sidebar on mobile after navigation
   if(window.innerWidth<=700)document.querySelector('.sidebar').classList.remove('open')
 }
@@ -1568,6 +1683,236 @@ async function manualSync(){
   DB = fresh
   render()
   toast('Datos sincronizados','☁️')
+}
+
+// ══════════════════════════════════════════════════
+// OFFLINE SYNC — pending queue
+// ══════════════════════════════════════════════════
+const PENDING_KEY='gc_pending_sync'
+function getPending(){try{const v=localStorage.getItem(PENDING_KEY);return v?JSON.parse(v):false}catch{return false}}
+function setPending(v){localStorage.setItem(PENDING_KEY,v?'1':'')}
+
+// Override dbSave to track pending state
+const _origDbSave=dbSave
+// patch: mark pending when offline, clear when online save succeeds
+async function syncPendingChanges(){
+  if(!getPending())return
+  if(!USE_JSONBIN)return
+  setSyncStatus('syncing')
+  try{
+    await dbPush(DB)
+    setPending(false)
+    setSyncStatus('ok')
+    toast('Datos sincronizados con el servidor','☁️')
+  }catch(e){
+    setSyncStatus('error')
+  }
+}
+// Patch dbPush to set pending on failure
+const _origDbPush=dbPush
+async function dbPush(db){
+  setSyncStatus('syncing')
+  try{
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'},
+      body:JSON.stringify(db)
+    })
+    if(!r.ok)throw new Error('HTTP '+r.status)
+    setPending(false)
+    setSyncStatus('ok')
+  }catch(e){
+    console.warn('JSONBin save failed, queued for sync:',e)
+    setPending(true)
+    setSyncStatus(navigator.onLine?'error':'local')
+  }
+}
+
+// ══════════════════════════════════════════════════
+// CORRELATIVO AUTOMÁTICO
+// ══════════════════════════════════════════════════
+function nextCorrelativo(){
+  // Find highest existing SIN-XXX number
+  let max=0
+  DB.animales.forEach(a=>{
+    const m=a.carimbo.match(/^SIN-(\d+)$/)
+    if(m)max=Math.max(max,parseInt(m[1]))
+  })
+  return max
+}
+function genCarimbo(){
+  const n=nextCorrelativo()+1
+  return'SIN-'+String(n).padStart(3,'0')
+}
+
+// ══════════════════════════════════════════════════
+// CARGA MASIVA
+// ══════════════════════════════════════════════════
+let masivaTab='rapido'
+let rafagaCount=0, rafagaLog=[]
+
+function setMasivaTab(t,el){
+  masivaTab=t
+  document.querySelectorAll('#p-masiva .tab').forEach(x=>x.classList.remove('active'))
+  el.classList.add('active')
+  document.getElementById('mt-rapido').style.display=t==='rapido'?'block':'none'
+  document.getElementById('mt-rafaga').style.display=t==='rafaga'?'block':'none'
+  document.getElementById('mt-excel').style.display=t==='excel'?'block':'none'
+  // populate lote selects
+  populateMasivaLotes()
+  if(t==='rafaga')setTimeout(()=>document.getElementById('rf-inp').focus(),100)
+}
+function populateMasivaLotes(){
+  const opts='<option value="">Sin lote</option>'+DB.lotes.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')
+  ;['mr-lote','rf-lote'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts})
+}
+function togMrCap(){
+  const v=document.getElementById('mr-origen').value
+  document.getElementById('mr-cap-fg').style.display=v==='capitalizacion'?'block':'none'
+}
+
+// ── Formulario Rápido ────────────────────────────
+function ejecutarCargaMasiva(){
+  const cat=document.getElementById('mr-cat').value
+  const cant=parseInt(document.getElementById('mr-cant').value)||0
+  if(!cat){alert('Seleccioná una categoría.');return}
+  if(cant<1||cant>500){alert('Cantidad debe ser entre 1 y 500.');return}
+
+  const raza=document.getElementById('mr-raza').value
+  const peso=parseFloat(document.getElementById('mr-peso').value)||0
+  const origen=document.getElementById('mr-origen').value
+  const cap=document.getElementById('mr-cap').value
+  const loteId=document.getElementById('mr-lote').value
+  const fecha=document.getElementById('mr-fecha').value||today()
+  const obs=document.getElementById('mr-obs').value
+
+  const nuevos=[]
+  let base=nextCorrelativo()
+  for(let i=0;i<cant;i++){
+    base++
+    const car='SIN-'+String(base).padStart(3,'0')
+    nuevos.push({id:uid(),carimbo:car,categoria:cat,raza,peso,origen,
+      capitalista:cap,loteId,fecha,estado:'activo',obs,creadoPor:currentUser.id})
+  }
+  DB.animales.push(...nuevos)
+  dbSave(DB)
+  logActivity('Carga masiva',`${cant} animales ${cat} (${nuevos[0].carimbo}–${nuevos[nuevos.length-1].carimbo})`)
+
+  // Show result
+  const res=document.getElementById('mr-result')
+  document.getElementById('mr-result-title').textContent=`✅ ${cant} animales cargados — ${nuevos[0].carimbo} a ${nuevos[nuevos.length-1].carimbo}`
+  document.getElementById('mr-result-body').innerHTML=nuevos.slice(0,20).map(a=>
+    `<span style="display:inline-block;background:rgba(61,107,74,.1);color:var(--green);padding:2px 8px;border-radius:6px;margin:2px;font-size:11px;font-weight:600">${a.carimbo}</span>`
+  ).join('')+(cant>20?`<div style="color:var(--hide);margin-top:6px">…y ${cant-20} más</div>`:'')
+  res.style.display='block'
+  render()
+  toast(`${cant} animales cargados`,'🐄')
+}
+
+// ── Bastón Ráfaga ─────────────────────────────────
+document.getElementById('rf-inp').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();procesarRafaga(document.getElementById('rf-inp').value.trim())}
+})
+function rafagaEnter(){procesarRafaga('')}
+function procesarRafaga(raw){
+  const inp=document.getElementById('rf-inp')
+  inp.value='';inp.focus()
+  const car=raw?raw.toUpperCase():genCarimbo()
+  const sinCarimbo=!raw
+
+  const existe=DB.animales.find(a=>a.carimbo===car)
+  if(existe&&!sinCarimbo){
+    document.getElementById('rf-status').innerHTML=`<span style="color:#FFB3A7">⚠️ ${car} ya existe en el rodeo</span>`
+    rafagaLog.unshift({car,ok:false,label:'Ya existe'})
+    renderRafagaLog();return
+  }
+
+  const nuevo={
+    id:uid(),carimbo:car,
+    categoria:document.getElementById('rf-cat').value,
+    raza:document.getElementById('rf-raza').value,
+    peso:0,origen:document.getElementById('rf-origen').value,
+    capitalista:'',loteId:document.getElementById('rf-lote').value,
+    fecha:today(),estado:'activo',
+    obs:sinCarimbo?'Alta vía bastón ráfaga (sin carimbo)':'Alta vía bastón ráfaga',
+    creadoPor:currentUser.id
+  }
+  DB.animales.push(nuevo);dbSave(DB)
+  rafagaCount++
+  document.getElementById('rf-counter').textContent=`${rafagaCount} escaneados`
+  document.getElementById('rf-status').innerHTML=`<span style="color:#7FFFD4">✅ ${car} — dado de alta</span>`
+  rafagaLog.unshift({car,ok:true,label:sinCarimbo?'Alta s/carimbo':'Alta OK'})
+  if(rafagaLog.length>25)rafagaLog.pop()
+  renderRafagaLog()
+  render()
+}
+function renderRafagaLog(){
+  document.getElementById('rf-log').innerHTML=rafagaLog.map(l=>
+    `<div style="background:rgba(255,255,255,.08);border-radius:5px;padding:4px 9px;margin-bottom:3px;font-size:11px;display:flex;justify-content:space-between;gap:8px">
+      <span style="font-weight:600;letter-spacing:.04em">${l.car}</span>
+      <span style="opacity:.65;font-size:10px;color:${l.ok?'#7FFFD4':'#FFB3A7'}">${l.label}</span>
+    </div>`
+  ).join('')
+}
+function clearRafaga(){
+  rafagaCount=0;rafagaLog=[]
+  document.getElementById('rf-counter').textContent='0 escaneados'
+  document.getElementById('rf-log').innerHTML=''
+  document.getElementById('rf-status').innerHTML='<span style="color:rgba(255,255,255,.4)">Registro limpiado…</span>'
+}
+
+// ── Excel masivo ──────────────────────────────────
+let masivaData=[]
+function previewMasiva(inp){
+  const file=inp.files[0];if(!file)return
+  const reader=new FileReader()
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'})
+      if(!wb.SheetNames.includes('Stock')){
+        toast('No se encontró la hoja "Stock"','❌');return
+      }
+      masivaData=[]
+      let base=nextCorrelativo()
+      XLSX.utils.sheet_to_json(wb.Sheets['Stock'],{defval:''}).forEach(r=>{
+        let car=String(r['Carimbo']||'').trim().toUpperCase()
+        if(!car){base++;car='SIN-'+String(base).padStart(3,'0')}
+        const orig=String(r['Origen']||'propio').toLowerCase()
+        const est=String(r['Estado']||'activo').toLowerCase()
+        masivaData.push({id:uid(),carimbo:car,categoria:String(r['Categoría']||''),
+          raza:String(r['Raza']||''),peso:parseFloat(r['Peso (kg)'])||0,
+          origen:orig,capitalista:String(r['Capitalista']||''),
+          loteId:'',fecha:normDate(r['Fecha Ingreso']),
+          estado:est,obs:String(r['Observaciones']||''),creadoPor:currentUser.id})
+      })
+      document.getElementById('masiva-import-summary').textContent=`${masivaData.length} animales listos para importar`
+      let ph='<table><thead><tr><th>#</th><th>Carimbo</th><th>Categoría</th><th>Origen</th><th>Estado</th></tr></thead><tbody>'
+      masivaData.slice(0,10).forEach((a,i)=>{
+        ph+=`<tr><td>${i+1}</td><td><b>${a.carimbo}</b></td><td>${a.categoria||'—'}</td><td>${a.origen}</td><td>${a.estado}</td></tr>`
+      })
+      if(masivaData.length>10)ph+=`<tr class="empty-row"><td colspan="5">…y ${masivaData.length-10} más</td></tr>`
+      ph+='</tbody></table>'
+      document.getElementById('masiva-import-preview').innerHTML=ph
+      document.getElementById('masiva-import-area').style.display='block'
+    }catch(err){toast('Error: '+err.message,'❌')}
+  }
+  reader.readAsArrayBuffer(file)
+}
+function confirmarMasiva(){
+  if(!masivaData.length)return
+  // Skip duplicates by carimbo
+  const cars=new Set(DB.animales.map(a=>a.carimbo))
+  const nuevos=masivaData.filter(a=>!cars.has(a.carimbo))
+  const dups=masivaData.length-nuevos.length
+  DB.animales.push(...nuevos);dbSave(DB)
+  logActivity('Importación masiva Excel',`${nuevos.length} animales`)
+  cancelMasiva();render()
+  toast(`${nuevos.length} animales importados${dups?` (${dups} duplicados omitidos)`:''}`,'🐄')
+}
+function cancelMasiva(){
+  masivaData=[]
+  document.getElementById('masiva-import-area').style.display='none'
+  document.getElementById('masiva-file').value=''
 }
 
 function render(){
