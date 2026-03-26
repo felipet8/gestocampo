@@ -446,6 +446,25 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <div class="ph-actions"><button class="btn btn-p" onclick="openM('m-animal')">+ Agregar Animal</button></div>
   </div>
   <div class="stats" id="stock-stats"></div>
+
+  <!-- RESUMEN POR PROPIETARIO Y CATEGORÍA -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <div class="tw">
+      <div class="tw-head"><h3>👤 Por Propietario / Capitalista</h3></div>
+      <div style="padding:0" id="stock-by-owner">
+        <table><thead><tr><th>Propietario</th><th>Origen</th><th style="text-align:right">Cabezas</th></tr></thead>
+        <tbody id="stock-owner-tbody"></tbody></table>
+      </div>
+    </div>
+    <div class="tw">
+      <div class="tw-head"><h3>🐄 Por Categoría</h3></div>
+      <div style="padding:0" id="stock-by-cat">
+        <table><thead><tr><th>Categoría</th><th style="text-align:right">Cabezas</th><th style="text-align:right">Peso prom.</th></tr></thead>
+        <tbody id="stock-cat-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
   <div class="tabs">
     <div class="tab active" onclick="setStockTab('todos',this)">Todos</div>
     <div class="tab" onclick="setStockTab('propio',this)">Propios</div>
@@ -836,10 +855,8 @@ function dbEmpty(){
 // Cargar desde JSONBin (o localStorage como fallback)
 async function dbLoad(){
   if(!USE_JSONBIN){
-    try{
-      const v=localStorage.getItem(DB_LOCAL_KEY)
-      return v?JSON.parse(v):dbEmpty()
-    }catch{return dbEmpty()}
+    try{const v=localStorage.getItem(DB_LOCAL_KEY);return v?JSON.parse(v):dbEmpty()}
+    catch{return dbEmpty()}
   }
   setSyncStatus('syncing')
   try{
@@ -847,26 +864,47 @@ async function dbLoad(){
       headers:{'X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'}
     })
     if(!r.ok)throw new Error('HTTP '+r.status)
-    const data=await r.json()
-    // Merge: keep shapefile lotes if bin has none
-    if(!data.lotes||data.lotes.length===0)data.lotes=LOTES_SHAPE.map(l=>({...l}))
-    localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(data))
+    const remote=await r.json()
+    if(!remote.lotes||remote.lotes.length===0)remote.lotes=LOTES_SHAPE.map(l=>({...l}))
+
+    // SAFE MERGE: compare local vs remote by record count + actlog length
+    // If local has MORE data than remote, local wins (push happened but remote is stale)
+    const local=lsGetDb()
+    const merged=mergeLocalRemote(local,remote)
+    localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(merged))
     setSyncStatus('ok')
-    return data
+    setPending(false)
+    return merged
   }catch(e){
     console.warn('JSONBin load failed, using local cache:',e)
-    setSyncStatus('error')
-    try{const v=localStorage.getItem(DB_LOCAL_KEY);return v?JSON.parse(v):dbEmpty()}
-    catch{return dbEmpty()}
+    setSyncStatus(navigator.onLine?'error':'local')
+    return lsGetDb()
   }
 }
 
-// Guardar en JSONBin (debounced 800ms para no hacer requests en cada tecla)
+function lsGetDb(){
+  try{const v=localStorage.getItem(DB_LOCAL_KEY);return v?JSON.parse(v):dbEmpty()}
+  catch{return dbEmpty()}
+}
+
+function mergeLocalRemote(local,remote){
+  // Use whichever has more records in each collection (local changes take priority if newer)
+  const winner=(a,b)=>((a||[]).length>=(b||[]).length)?a:b
+  return{
+    animales: winner(local.animales,remote.animales),
+    lotes:    (local.lotes&&local.lotes.length>0)?local.lotes:remote.lotes,
+    ingresos: winner(local.ingresos,remote.ingresos),
+    egresos:  winner(local.egresos,remote.egresos),
+    actlog:   winner(local.actlog,remote.actlog),
+  }
+}
+
+// Guardar: siempre local primero, luego push async (sin debounce mínimo para no perder datos)
 function dbSave(db){
   localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(db))
   if(!USE_JSONBIN)return
   clearTimeout(syncDebounce)
-  syncDebounce=setTimeout(()=>dbPush(db),800)
+  syncDebounce=setTimeout(()=>dbPush(db),1200)
 }
 
 async function dbPush(db){
@@ -878,27 +916,43 @@ async function dbPush(db){
       body:JSON.stringify(db)
     })
     if(!r.ok)throw new Error('HTTP '+r.status)
+    setPending(false)
     setSyncStatus('ok')
   }catch(e){
-    console.warn('JSONBin save failed:',e)
-    setSyncStatus('error')
+    console.warn('JSONBin save failed, will retry on reconnect:',e)
+    setPending(true)
+    setSyncStatus(navigator.onLine?'error':'local')
   }
 }
 
-// Auto-refresh cada 30s para ver cambios de otros usuarios
+// Auto-refresh cada 60s — SOLO actualiza si remote tiene MÁS datos que local
+// Esto evita pisar cambios locales que todavía no se sincronizaron
 let autoRefreshInterval = null
 function startAutoRefresh(){
   stopAutoRefresh()
   if(!USE_JSONBIN)return
   autoRefreshInterval=setInterval(async()=>{
-    const fresh=await dbLoad()
-    // Only re-render if data actually changed
-    if(JSON.stringify(fresh)!==JSON.stringify(DB)){
-      DB=fresh
-      render()
-      toast('Datos actualizados por otro usuario','🔄')
-    }
-  },30000)
+    if(syncDebounce)return  // hay un push pendiente, no refrescar ahora
+    try{
+      const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,{
+        headers:{'X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'}
+      })
+      if(!r.ok)return
+      const remote=await r.json()
+      if(!remote.lotes||remote.lotes.length===0)remote.lotes=LOTES_SHAPE.map(l=>({...l}))
+      // Only update if remote has genuinely more data (another user added something)
+      const remoteTotal=(remote.animales||[]).length+(remote.ingresos||[]).length+(remote.egresos||[]).length
+      const localTotal=DB.animales.length+DB.ingresos.length+DB.egresos.length
+      if(remoteTotal>localTotal){
+        const merged=mergeLocalRemote(DB,remote)
+        DB=merged
+        localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(DB))
+        render()
+        toast('Nuevos datos de otro usuario','🔄')
+      }
+      setSyncStatus('ok')
+    }catch(e){setSyncStatus(navigator.onLine?'error':'local')}
+  },60000)
 }
 function stopAutoRefresh(){clearInterval(autoRefreshInterval)}
 
@@ -1067,9 +1121,56 @@ function renderStock(){
   const loteMap=Object.fromEntries(DB.lotes.map(l=>[l.id,l.nombre]))
   const tb=document.getElementById('stock-tbody');if(!tb)return
   tb.innerHTML=d.length?d.map(a=>`<tr><td><strong>${a.carimbo}</strong></td><td>${a.categoria}</td><td>${a.raza||'-'}</td><td>${a.peso||'-'}</td><td><span class="badge ${a.origen==='propio'?'b-green':'b-gold'}">${a.origen==='propio'?'Propio':'Cap.'}</span></td><td>${a.loteId?loteMap[a.loteId]||'-':'-'}</td><td><span class="badge ${a.estado==='activo'?'b-green':a.estado==='vendido'?'b-sky':'b-red'}">${a.estado}</span></td><td><button class="icon-btn" onclick="delAnimal('${a.id}')">🗑</button></td></tr>`).join(''):'<tr class="empty-row"><td colspan="8">Sin animales</td></tr>'
+
+  // ── Stats cards ──
   const act=DB.animales.filter(a=>a.estado==='activo')
   const el=document.getElementById('stock-stats');if(!el)return
-  el.innerHTML=`<div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Activos</div><div class="sc-value">${act.length}</div></div><div class="sc"><span class="sc-icon">🏠</span><div class="sc-label">Propios</div><div class="sc-value g">${act.filter(a=>a.origen==='propio').length}</div></div><div class="sc"><span class="sc-icon">🤝</span><div class="sc-label">Capitalización</div><div class="sc-value o">${act.filter(a=>a.origen==='capitalizacion').length}</div></div><div class="sc"><span class="sc-icon">📦</span><div class="sc-label">Total Reg.</div><div class="sc-value">${DB.animales.length}</div></div>`
+  el.innerHTML=`
+    <div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Activos</div><div class="sc-value">${act.length}</div></div>
+    <div class="sc"><span class="sc-icon">🏠</span><div class="sc-label">Propios</div><div class="sc-value g">${act.filter(a=>a.origen==='propio').length}</div></div>
+    <div class="sc"><span class="sc-icon">🤝</span><div class="sc-label">Capitalización</div><div class="sc-value o">${act.filter(a=>a.origen==='capitalizacion').length}</div></div>
+    <div class="sc"><span class="sc-icon">📦</span><div class="sc-label">Total Registrados</div><div class="sc-value">${DB.animales.length}</div></div>`
+
+  // ── Resumen por propietario ──
+  const ownerMap={}
+  act.forEach(a=>{
+    const key=a.origen==='propio'?'__propio__':(a.capitalista||'Sin nombre')
+    const label=a.origen==='propio'?'Campo Las Mulas':(a.capitalista||'Sin nombre')
+    if(!ownerMap[key])ownerMap[key]={label,origen:a.origen,count:0}
+    ownerMap[key].count++
+  })
+  const ownerTb=document.getElementById('stock-owner-tbody')
+  if(ownerTb){
+    const rows=Object.values(ownerMap).sort((a,b)=>b.count-a.count)
+    const total=rows.reduce((s,r)=>s+r.count,0)
+    ownerTb.innerHTML=rows.length?rows.map(r=>`
+      <tr>
+        <td><strong>${r.label}</strong></td>
+        <td><span class="badge ${r.origen==='propio'?'b-green':'b-gold'}">${r.origen==='propio'?'Propio':'Cap.'}</span></td>
+        <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600">${r.count}</td>
+      </tr>`).join('')+`<tr style="background:var(--parch)"><td colspan="2" style="font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--hide)">Total activos</td><td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:var(--green)">${total}</td></tr>`
+    :'<tr class="empty-row"><td colspan="3">Sin animales activos</td></tr>'
+  }
+
+  // ── Resumen por categoría ──
+  const catMap={}
+  act.forEach(a=>{
+    const k=a.categoria||'Sin categoría'
+    if(!catMap[k])catMap[k]={count:0,pesoSum:0,pesoCount:0}
+    catMap[k].count++
+    if(a.peso>0){catMap[k].pesoSum+=a.peso;catMap[k].pesoCount++}
+  })
+  const catTb=document.getElementById('stock-cat-tbody')
+  if(catTb){
+    const rows=Object.entries(catMap).sort((a,b)=>b[1].count-a[1].count)
+    catTb.innerHTML=rows.length?rows.map(([cat,v])=>`
+      <tr>
+        <td><strong>${cat}</strong></td>
+        <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600">${v.count}</td>
+        <td style="text-align:right;color:var(--hide);font-size:12px">${v.pesoCount>0?Math.round(v.pesoSum/v.pesoCount)+' kg':'-'}</td>
+      </tr>`).join('')
+    :'<tr class="empty-row"><td colspan="3">Sin animales activos</td></tr>'
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -1708,26 +1809,6 @@ async function syncPendingChanges(){
     setSyncStatus('error')
   }
 }
-// Patch dbPush to set pending on failure
-const _origDbPush=dbPush
-async function dbPush(db){
-  setSyncStatus('syncing')
-  try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'},
-      body:JSON.stringify(db)
-    })
-    if(!r.ok)throw new Error('HTTP '+r.status)
-    setPending(false)
-    setSyncStatus('ok')
-  }catch(e){
-    console.warn('JSONBin save failed, queued for sync:',e)
-    setPending(true)
-    setSyncStatus(navigator.onLine?'error':'local')
-  }
-}
-
 // ══════════════════════════════════════════════════
 // CORRELATIVO AUTOMÁTICO
 // ══════════════════════════════════════════════════
