@@ -487,7 +487,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
   </div>
 
   <!-- BARRA DE SELECCIÓN MÚLTIPLE -->
-  <div id="stock-sel-bar" style="display:none;background:var(--earth);color:var(--wheat);border-radius:9px;padding:10px 16px;margin-bottom:12px;display:none;align-items:center;gap:12px;flex-wrap:wrap">
+  <div id="stock-sel-bar" style="display:none;background:var(--earth);color:var(--wheat);border-radius:9px;padding:10px 16px;margin-bottom:12px;align-items:center;gap:12px;flex-wrap:wrap">
     <span style="font-size:13px;font-weight:600" id="sel-count-lbl">0 seleccionados</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" style="background:var(--sky);color:#fff;font-size:12px;padding:6px 12px" onclick="openEditMasivo()">✏️ Editar seleccionados</button>
@@ -1115,7 +1115,7 @@ function nav(id,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   document.getElementById('p-'+id).classList.add('active');el.classList.add('active');render()
   if(id==='scanner')setTimeout(()=>document.getElementById('scan-inp').focus(),100)
-  if(id==='campo')setTimeout(renderMapLotes,50)
+  if(id==='campo')setTimeout(()=>{renderMapLotes();fitMapView()},50)
   if(id==='masiva'){populateMasivaLotes();const f=document.getElementById('mr-fecha');if(f&&!f.value)f.value=today()}
   // close sidebar on mobile after navigation
   if(window.innerWidth<=700)document.querySelector('.sidebar').classList.remove('open')
@@ -1465,21 +1465,27 @@ function zoomMap(factor){
   svg.setAttribute('viewBox',`${cx-nw/2} ${cy-nh/2} ${nw} ${nh}`)
 }
 
-// Auto-fit viewBox to actual lote geometry with padding
 function fitMapView(){
-  const lotes=DB.lotes.filter(l=>l.rings&&l.rings.length&&l.rings[0].length)
-  if(!lotes.length){resetMapView();return}
+  const svg=document.getElementById('field-svg')
+  if(!svg)return
+  const lotes=DB.lotes.filter(l=>l.rings&&l.rings.length&&l.rings[0]&&l.rings[0].length)
+  if(!lotes.length){svg.setAttribute('viewBox','0 0 900 600');return}
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity
   lotes.forEach(l=>{
     l.rings[0].forEach(p=>{
-      minX=Math.min(minX,p[0]);maxX=Math.max(maxX,p[0])
-      minY=Math.min(minY,p[1]);maxY=Math.max(maxY,p[1])
+      const x=Array.isArray(p)?p[0]:p.x, y=Array.isArray(p)?p[1]:p.y
+      minX=Math.min(minX,x);maxX=Math.max(maxX,x)
+      minY=Math.min(minY,y);maxY=Math.max(maxY,y)
     })
   })
-  const pad=20, w=maxX-minX+pad*2, h=maxY-minY+pad*2
-  document.getElementById('field-svg').setAttribute('viewBox',`${minX-pad} ${minY-pad} ${w} ${h}`)
+  if(!isFinite(minX))return
+  const pad=20,w=maxX-minX+pad*2,h=maxY-minY+pad*2
+  svg.setAttribute('viewBox',`${minX-pad} ${minY-pad} ${w} ${h}`)
 }
-function resetMapView(){fitMapView()}
+function resetMapView(){
+  const svg=document.getElementById('field-svg')
+  if(svg)svg.setAttribute('viewBox','0 0 900 600')
+}
 
 // ── PAN implementation ──
 let panState={active:false,startX:0,startY:0,startVB:{x:0,y:0,w:0,h:0}}
@@ -1567,8 +1573,8 @@ function renderMapLotes(){
   const leg=document.getElementById('map-legend');if(!leg)return
   const cultivos=[...new Set(DB.lotes.filter(l=>l.rings&&l.rings.length&&l.rings[0].length).map(l=>l.cultivo||'').filter(Boolean))]
   leg.innerHTML='<span style="font-size:11px;color:var(--hide)">Uso del suelo:</span>'+cultivos.map(c=>`<div class="legend-item"><div class="legend-dot" style="background:${CULTIVO_COLORS[c]||'#888'}"></div><span style="font-size:11px">${c}</span></div>`).join('')
-  // auto-fit viewBox to lote geometry
-  fitMapView()
+  // auto-fit viewBox to lote geometry — only when campo page is active
+  if(document.getElementById('p-campo')?.classList.contains('active')) fitMapView()
 }
 function selectLote(id){
   selectedLoteId=id
@@ -2186,9 +2192,8 @@ function cancelMasiva(){
 }
 
 function render(){
-  // DB is kept in memory and synced async via dbLoad/dbSave
-  renderDashboard();renderStock();renderIngresos();renderEgresos();renderReportes()
-  renderLoteGrid();renderMapLotes();renderUsuarios()
+  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios]
+  fns.forEach(fn=>{try{fn()}catch(e){console.error(fn.name+' failed:',e)}})
 }
 </script>
 </body>
