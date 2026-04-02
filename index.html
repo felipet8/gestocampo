@@ -335,6 +335,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <div class="nav-sect">Campo</div>
     <div class="nav-item" onclick="nav('campo',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>Plano del Campo</div>
     <div class="nav-sect">Hacienda</div>
+    <div class="nav-item" onclick="nav('tropas',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Tropas</div>
     <div class="nav-item" onclick="nav('stock',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Stock Bovino</div>
     <div class="nav-item" onclick="nav('masiva',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Carga Masiva</div>
     <div class="nav-item" onclick="nav('scanner',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>Lector Caravanas</div>
@@ -443,6 +444,55 @@ tr:hover td{background:rgba(242,232,208,.4)}
   </div>
 </div>
 
+<!-- TROPAS -->
+<div class="page" id="p-tropas">
+  <div class="ph">
+    <div><div class="ph-title">Tropas</div><div class="ph-sub">Agrupá animales por propietario o lote productivo</div></div>
+    <div class="ph-actions"><button class="btn btn-p" onclick="openM('m-tropa')">+ Nueva Tropa</button></div>
+  </div>
+
+  <!-- Lista de tropas como carpetas -->
+  <div id="tropas-lista" style="display:flex;flex-direction:column;gap:14px"></div>
+
+  <!-- Detalle de tropa seleccionada -->
+  <div id="tropa-detalle" style="display:none;margin-top:20px">
+    <div class="tw">
+      <div class="tw-head" style="background:var(--earth)">
+        <h3 id="td-titulo" style="color:var(--straw)">Tropa</h3>
+        <div style="display:flex;gap:8px">
+          <button class="btn" style="background:rgba(255,255,255,.12);color:var(--wheat);font-size:12px;padding:6px 12px" onclick="openAsignarAnimales()">+ Asignar Animales</button>
+          <button class="btn" style="background:rgba(255,255,255,.12);color:var(--wheat);font-size:12px;padding:6px 12px" onclick="editTropa()">✏️ Editar</button>
+          <button class="btn" style="background:rgba(184,60,42,.4);color:#fff;font-size:12px;padding:6px 12px" onclick="deleteTropa()">🗑</button>
+          <button class="btn btn-g" style="font-size:12px;padding:6px 12px;color:var(--hide)" onclick="closeTropaDetalle()">✕</button>
+        </div>
+      </div>
+      <!-- Stats de la tropa -->
+      <div style="padding:16px;border-bottom:1px solid var(--wheat)">
+        <div class="stats" id="td-stats" style="margin-bottom:0"></div>
+      </div>
+      <!-- Categorías dentro de la tropa -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+        <div style="padding:14px;border-right:1px solid var(--wheat)">
+          <div style="font-size:11px;font-weight:600;color:var(--hide);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Por Categoría</div>
+          <div id="td-categorias"></div>
+        </div>
+        <div style="padding:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--hide);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Ingresos/Egresos vinculados</div>
+          <div id="td-finanzas"></div>
+        </div>
+      </div>
+      <!-- Tabla de animales -->
+      <div style="border-top:1px solid var(--wheat)">
+        <div style="padding:10px 14px;background:var(--parch);font-size:11px;font-weight:600;color:var(--hide);text-transform:uppercase;letter-spacing:.06em">Animales de esta tropa</div>
+        <table>
+          <thead><tr><th>Carimbo</th><th>Categoría</th><th>Raza</th><th>Peso</th><th>Estado</th><th>Lote</th><th></th></tr></thead>
+          <tbody id="td-animales-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- STOCK -->
 <div class="page" id="p-stock">
   <div class="ph">
@@ -501,7 +551,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <table>
       <thead><tr>
         <th style="width:32px"><input type="checkbox" id="sel-all-cb" onclick="toggleSelAll(this)" title="Seleccionar todos"></th>
-        <th>Carimbo</th><th>Categoría</th><th>Raza</th><th>Peso</th><th>Origen</th><th>Lote</th><th>Estado</th><th></th>
+        <th>Carimbo</th><th>Categoría</th><th>Raza</th><th>Peso</th><th>Origen</th><th>Lote</th><th>Tropa</th><th>Estado</th><th></th>
       </tr></thead>
       <tbody id="stock-tbody"></tbody>
     </table>
@@ -532,6 +582,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
         </div>
         <div class="fg" style="margin:0;display:none" id="mr-cap-fg"><label>Capitalista</label><input id="mr-cap" placeholder="Nombre del tercero"></div>
         <div class="fg" style="margin:0"><label>Lote / Potrero</label><select id="mr-lote"><option value="">Sin lote</option></select></div>
+        <div class="fg" style="margin:0"><label>Tropa</label><select id="mr-tropa"><option value="">Sin tropa</option></select></div>
         <div class="fg" style="margin:0"><label>Fecha de Ingreso</label><input id="mr-fecha" type="date"></div>
       </div>
       <div style="padding:0 16px 16px"><div class="fg" style="margin:0"><label>Observaciones</label><input id="mr-obs" placeholder="Notas para todos los animales…"></div></div>
@@ -789,7 +840,8 @@ tr:hover td{background:rgba(242,232,208,.4)}
       <div class="fr"><div class="fg"><label>Carimbo *</label><input id="a-car" placeholder="ej. A-0123"></div><div class="fg"><label>Categoría *</label><select id="a-cat"><option value="">Seleccionar…</option><option>Ternero/a</option><option>Novillo</option><option>Novillito</option><option>Vaca</option><option>Vaquillona</option><option>Toro</option></select></div></div>
       <div class="fr"><div class="fg"><label>Raza</label><input id="a-raza" placeholder="Angus, Hereford…"></div><div class="fg"><label>Peso (kg)</label><input id="a-peso" type="number" placeholder="0"></div></div>
       <div class="fr"><div class="fg"><label>Fecha Ingreso *</label><input id="a-fecha" type="date"></div><div class="fg"><label>Lote asignado</label><select id="a-lote"><option value="">Sin lote</option></select></div></div>
-      <div class="fr"><div class="fg"><label>Origen *</label><select id="a-origen" onchange="togCap()"><option value="propio">Propio</option><option value="capitalizacion">Capitalización</option></select></div><div class="fg" id="fg-cap" style="display:none"><label>Capitalista</label><input id="a-cap" placeholder="Nombre"></div></div>
+      <div class="fr"><div class="fg"><label>Tropa</label><select id="a-tropa"><option value="">Sin tropa</option></select></div><div class="fg"><label>Origen *</label><select id="a-origen" onchange="togCap()"><option value="propio">Propio</option><option value="capitalizacion">Capitalización</option></select></div></div>
+      <div class="fr"><div class="fg" id="fg-cap" style="display:none"><label>Capitalista</label><input id="a-cap" placeholder="Nombre"></div><div class="fg"></div></div>
       <div class="fr"><div class="fg"><label>Estado</label><select id="a-estado"><option value="activo">Activo</option><option value="vendido">Vendido</option><option value="muerto">Muerto</option></select></div><div class="fg"></div></div>
       <div class="fg"><label>Observaciones</label><textarea id="a-obs" rows="2" placeholder="Notas…"></textarea></div>
     </div>
@@ -844,6 +896,56 @@ tr:hover td{background:rgba(242,232,208,.4)}
 <div class="toast-wrap" id="toasts"></div>
 
 <!-- MODAL LLUVIA -->
+<div class="mb" id="m-tropa">
+  <div class="modal">
+    <div class="mh"><h3 id="m-tropa-title">Nueva Tropa</h3><button class="x-btn" onclick="closeM('m-tropa')">✕</button></div>
+    <div class="mb-body">
+      <div class="fg"><label>Nombre de la Tropa *</label><input id="tr-nombre" placeholder="ej. Tropa 1, Vaquillonas Pérez…"></div>
+      <div class="fr">
+        <div class="fg"><label>Propietario principal (opcional)</label><input id="tr-dueno" placeholder="Ej: Juan Pérez, Campo propio…"></div>
+        <div class="fg"><label>Lote principal</label><select id="tr-lote"><option value="">Sin lote</option></select></div>
+      </div>
+      <div class="fg"><label>Observaciones</label><textarea id="tr-obs" rows="2" placeholder="Condiciones, contrato, notas…"></textarea></div>
+      <input type="hidden" id="tr-id">
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeM('m-tropa')">Cancelar</button>
+      <button class="btn btn-p" onclick="saveTropa()">Guardar Tropa</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ASIGNAR ANIMALES -->
+<div class="mb" id="m-asignar">
+  <div class="modal" style="width:600px">
+    <div class="mh"><h3>Asignar Animales a la Tropa</h3><button class="x-btn" onclick="closeM('m-asignar')">✕</button></div>
+    <div class="mb-body">
+      <div class="info-box" style="margin-bottom:12px">Seleccioná los animales que querés agregar. Solo se muestran los que no pertenecen a ninguna tropa actualmente.</div>
+      <div class="filter-bar" style="margin-bottom:10px">
+        <input type="text" id="asig-search" placeholder="Buscar carimbo…" oninput="renderAsignarList()" style="flex:1">
+        <select id="asig-cat" onchange="renderAsignarList()">
+          <option value="">Todas las categorías</option>
+          <option>Ternero/a</option><option>Novillo</option><option>Novillito</option>
+          <option>Vaca</option><option>Vaquillona</option><option>Toro</option>
+        </select>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px;color:var(--hide)">
+        <span id="asig-count">0 seleccionados</span>
+        <button class="btn btn-g" style="font-size:11px;padding:4px 10px" onclick="selAllAsig()">Seleccionar todos</button>
+      </div>
+      <div style="max-height:300px;overflow-y:auto;border:1px solid var(--wheat);border-radius:8px">
+        <table style="font-size:12px">
+          <thead><tr><th style="width:32px"></th><th>Carimbo</th><th>Categoría</th><th>Raza</th><th>Peso</th><th>Origen</th></tr></thead>
+          <tbody id="asig-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeM('m-asignar')">Cancelar</button>
+      <button class="btn btn-p" onclick="confirmarAsignacion()">Asignar Seleccionados</button>
+    </div>
+  </div>
+</div>
 <div class="mb" id="m-lluvia">
   <div class="modal">
     <div class="mh"><h3>Registrar Lluvia</h3><button class="x-btn" onclick="closeM('m-lluvia')">✕</button></div>
@@ -902,7 +1004,11 @@ tr:hover td{background:rgba(242,232,208,.4)}
           <select id="em-lote"><option value="">— Sin cambio —</option><option value="__clear__">Quitar lote</option></select>
         </div>
       </div>
-      <div class="fg"><label>Capitalista</label><input id="em-cap" placeholder="— Sin cambio —"></div>
+      <div class="fr">
+        <div class="fg"><label>Tropa</label>
+          <select id="em-tropa"><option value="">— Sin cambio —</option><option value="__clear__">Quitar de tropa</option></select>
+        </div>
+        <div class="fg"><label>Capitalista</label><input id="em-cap" placeholder="— Sin cambio —"></div>
       <div class="fg"><label>Observaciones</label><input id="em-obs" placeholder="— Sin cambio —"></div>
     </div>
     <div class="mf">
@@ -986,7 +1092,7 @@ let syncStatus = 'local'  // 'local' | 'syncing' | 'ok' | 'error'
 let syncDebounce = null
 
 function dbEmpty(){
-  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[]}
+  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[]}
 }
 
 // Cargar desde JSONBin (o localStorage como fallback)
@@ -1034,6 +1140,7 @@ function mergeLocalRemote(local,remote){
     egresos:  winner(local.egresos,remote.egresos),
     actlog:   winner(local.actlog,remote.actlog),
     lluvias:  winner(local.lluvias||[],remote.lluvias||[]),
+    tropas:   winner(local.tropas||[],remote.tropas||[]),
   }
 }
 
@@ -1207,6 +1314,7 @@ function openM(id){
   if(id==='m-animal')populateLoteSelect()
   if(id==='m-ing'){toggleIngFields()}
   if(id==='m-lluvia'){populateLluviaLote()}
+  if(id==='m-tropa'){populateTropaLote()}
 }
 function closeM(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.mb').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)b.classList.remove('open')}))
@@ -1260,16 +1368,19 @@ function eliminarSeleccionados(){
 }
 function openEditMasivo(){
   if(!selectedAnimals.size) return
-  // populate lote select in modal
   const sel=document.getElementById('em-lote')
   if(sel){
     sel.innerHTML='<option value="">— Sin cambio —</option><option value="__clear__">Quitar lote</option>'
       +DB.lotes.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')
   }
+  const tsel=document.getElementById('em-tropa')
+  if(tsel){
+    tsel.innerHTML='<option value="">— Sin cambio —</option><option value="__clear__">Quitar de tropa</option>'
+      +(DB.tropas||[]).map(t=>`<option value="${t.id}">${t.nombre}${t.dueno&&t.dueno!=='Sin asignar'?' ('+t.dueno+')':''}</option>`).join('')
+  }
   document.getElementById('em-count-lbl').textContent=
     `Se modificarán ${selectedAnimals.size} animal${selectedAnimals.size!==1?'es':''}`
-  // clear all fields
-  ;['em-cat','em-estado','em-origen','em-lote'].forEach(id=>{
+  ;['em-cat','em-estado','em-origen','em-lote','em-tropa'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value=''
   })
   ;['em-raza','em-peso','em-cap','em-obs'].forEach(id=>{
@@ -1284,6 +1395,7 @@ function aplicarEditMasivo(){
   const estado=document.getElementById('em-estado').value
   const origen=document.getElementById('em-origen').value
   const loteId=document.getElementById('em-lote').value
+  const tropaId=document.getElementById('em-tropa').value
   const cap=document.getElementById('em-cap').value.trim()
   const obs=document.getElementById('em-obs').value.trim()
 
@@ -1297,6 +1409,8 @@ function aplicarEditMasivo(){
     if(origen) a.origen=origen
     if(loteId==='__clear__') a.loteId=''
     else if(loteId) a.loteId=loteId
+    if(tropaId==='__clear__') a.tropaId=''
+    else if(tropaId) a.tropaId=tropaId
     if(cap) a.capitalista=cap
     if(obs) a.obs=obs
     changed++
@@ -1312,12 +1426,14 @@ function setStockTab(t,el){stockTab=t;document.querySelectorAll('#p-stock .tab')
 function populateLoteSelect(){
   const sel=document.getElementById('a-lote');if(!sel)return
   sel.innerHTML='<option value="">Sin lote</option>'+DB.lotes.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')
+  const tsel=document.getElementById('a-tropa');if(!tsel)return
+  tsel.innerHTML='<option value="">Sin tropa</option>'+(DB.tropas||[]).map(t=>`<option value="${t.id}">${t.nombre} (${t.dueno})</option>`).join('')
 }
 function saveAnimal(rec){
   if(!rec){
     const car=document.getElementById('a-car').value.trim(),cat=document.getElementById('a-cat').value
     if(!car||!cat){alert('Completá carimbo y categoría.');return}
-    rec={id:uid(),carimbo:car.toUpperCase(),categoria:cat,raza:document.getElementById('a-raza').value,peso:parseFloat(document.getElementById('a-peso').value)||0,origen:document.getElementById('a-origen').value,capitalista:document.getElementById('a-cap').value,loteId:document.getElementById('a-lote').value,fecha:document.getElementById('a-fecha').value,estado:document.getElementById('a-estado').value,obs:document.getElementById('a-obs').value,creadoPor:currentUser.id}
+    rec={id:uid(),carimbo:car.toUpperCase(),categoria:cat,raza:document.getElementById('a-raza').value,peso:parseFloat(document.getElementById('a-peso').value)||0,origen:document.getElementById('a-origen').value,capitalista:document.getElementById('a-cap').value,loteId:document.getElementById('a-lote').value,tropaId:document.getElementById('a-tropa').value,fecha:document.getElementById('a-fecha').value,estado:document.getElementById('a-estado').value,obs:document.getElementById('a-obs').value,creadoPor:currentUser.id}
     closeM('m-animal');clr('a-car','a-raza','a-peso','a-cap','a-obs')
     document.getElementById('a-cat').value='';document.getElementById('a-origen').value='propio';document.getElementById('fg-cap').style.display='none'
   }
@@ -1338,15 +1454,17 @@ function renderStock(){
   if(cf)d=d.filter(a=>a.categoria===cf)
   if(ef)d=d.filter(a=>a.estado===ef)
   const loteMap=Object.fromEntries(DB.lotes.map(l=>[l.id,l.nombre]))
+  const tropaMap=Object.fromEntries((DB.tropas||[]).map(t=>[t.id,t.nombre]))
   const tb=document.getElementById('stock-tbody');if(!tb)return
   tb.innerHTML=d.length?d.map(a=>`<tr>
     <td><input type="checkbox" class="sel-cb" data-id="${a.id}" ${selectedAnimals.has(a.id)?'checked':''} onclick="toggleSel('${a.id}')"></td>
     <td><strong>${a.carimbo}</strong></td><td>${a.categoria}</td><td>${a.raza||'-'}</td><td>${a.peso||'-'}</td>
     <td><span class="badge ${a.origen==='propio'?'b-green':'b-gold'}">${a.origen==='propio'?'Propio':'Cap.'}</span></td>
     <td>${a.loteId?loteMap[a.loteId]||'-':'-'}</td>
+    <td>${a.tropaId?`<span class="badge b-purple">${tropaMap[a.tropaId]||'-'}</span>`:'-'}</td>
     <td><span class="badge ${a.estado==='activo'?'b-green':a.estado==='vendido'?'b-sky':'b-red'}">${a.estado}</span></td>
     <td><button class="icon-btn" onclick="delAnimal('${a.id}')">🗑</button></td>
-  </tr>`).join(''):'<tr class="empty-row"><td colspan="9">Sin animales</td></tr>'
+  </tr>`).join(''):'<tr class="empty-row"><td colspan="10">Sin animales</td></tr>'
   updateSelBar()
 
   // ── Stats cards ──
@@ -2120,8 +2238,10 @@ function setMasivaTab(t,el){
   if(t==='rafaga')setTimeout(()=>document.getElementById('rf-inp').focus(),100)
 }
 function populateMasivaLotes(){
-  const opts='<option value="">Sin lote</option>'+DB.lotes.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')
-  ;['mr-lote','rf-lote'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts})
+  const loteOpts='<option value="">Sin lote</option>'+DB.lotes.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')
+  ;['mr-lote','rf-lote'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=loteOpts})
+  const tropaOpts='<option value="">Sin tropa</option>'+(DB.tropas||[]).map(t=>`<option value="${t.id}">${t.nombre}${t.dueno&&t.dueno!=='Sin asignar'?' ('+t.dueno+')':''}</option>`).join('')
+  ;['mr-tropa'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=tropaOpts})
 }
 function togMrCap(){
   const v=document.getElementById('mr-origen').value
@@ -2140,6 +2260,7 @@ function ejecutarCargaMasiva(){
   const origen=document.getElementById('mr-origen').value
   const cap=document.getElementById('mr-cap').value
   const loteId=document.getElementById('mr-lote').value
+  const tropaId=document.getElementById('mr-tropa').value
   const fecha=document.getElementById('mr-fecha').value||today()
   const obs=document.getElementById('mr-obs').value
 
@@ -2149,7 +2270,7 @@ function ejecutarCargaMasiva(){
     base++
     const car='SIN-'+String(base).padStart(3,'0')
     nuevos.push({id:uid(),carimbo:car,categoria:cat,raza,peso,origen,
-      capitalista:cap,loteId,fecha,estado:'activo',obs,creadoPor:currentUser.id})
+      capitalista:cap,loteId,tropaId,fecha,estado:'activo',obs,creadoPor:currentUser.id})
   }
   DB.animales.push(...nuevos)
   dbSave(DB)
@@ -2270,6 +2391,258 @@ function cancelMasiva(){
   masivaData=[]
   document.getElementById('masiva-import-area').style.display='none'
   document.getElementById('masiva-file').value=''
+}
+
+// ══════════════════════════════════════════════════
+// TROPAS
+// ══════════════════════════════════════════════════
+let tropaActivaId = null
+let asigSeleccionados = new Set()
+
+function initTropas(){
+  if(!DB.tropas) DB.tropas=[]
+}
+
+function populateTropaLote(){
+  const sel=document.getElementById('tr-lote');if(!sel)return
+  sel.innerHTML='<option value="">Sin lote</option>'+DB.lotes.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')
+}
+
+function saveTropa(){
+  initTropas()
+  const nombre=document.getElementById('tr-nombre').value.trim()
+  const dueno=document.getElementById('tr-dueno').value.trim()||'Sin asignar'
+  if(!nombre){alert('Ingresá el nombre de la tropa.');return}
+  const existId=document.getElementById('tr-id').value
+  if(existId){
+    const t=DB.tropas.find(t=>t.id===existId)
+    if(t){t.nombre=nombre;t.dueno=dueno;t.loteId=document.getElementById('tr-lote').value;t.obs=document.getElementById('tr-obs').value}
+    logActivity('Editó tropa',nombre)
+  } else {
+    DB.tropas.push({id:uid(),nombre,dueno,loteId:document.getElementById('tr-lote').value,obs:document.getElementById('tr-obs').value,creadoEn:today(),creadoPor:currentUser.id})
+    logActivity('Creó tropa',nombre)
+  }
+  dbSave(DB);closeM('m-tropa');clr('tr-nombre','tr-dueno','tr-obs');document.getElementById('tr-id').value=''
+  render();toast(`Tropa "${nombre}" guardada`,'🐄')
+}
+
+function editTropa(){
+  if(!tropaActivaId) return
+  const t=DB.tropas.find(x=>x.id===tropaActivaId);if(!t)return
+  document.getElementById('m-tropa-title').textContent='Editar Tropa'
+  document.getElementById('tr-id').value=t.id
+  document.getElementById('tr-nombre').value=t.nombre
+  document.getElementById('tr-dueno').value=t.dueno
+  document.getElementById('tr-lote').value=t.loteId||''
+  document.getElementById('tr-obs').value=t.obs||''
+  openM('m-tropa')
+}
+
+function deleteTropa(){
+  if(!tropaActivaId)return
+  const t=DB.tropas.find(x=>x.id===tropaActivaId);if(!t)return
+  if(!confirm(`¿Eliminar la tropa "${t.nombre}"? Los animales quedan en el sistema sin tropa.`))return
+  // unassign animals
+  DB.animales.forEach(a=>{if(a.tropaId===tropaActivaId)a.tropaId=''})
+  DB.tropas=DB.tropas.filter(x=>x.id!==tropaActivaId)
+  dbSave(DB);logActivity('Eliminó tropa',t.nombre)
+  tropaActivaId=null
+  document.getElementById('tropa-detalle').style.display='none'
+  render();toast('Tropa eliminada','🗑')
+}
+
+function openTropa(id){
+  tropaActivaId=id
+  renderTropaDetalle()
+  document.getElementById('tropa-detalle').style.display='block'
+  setTimeout(()=>document.getElementById('tropa-detalle').scrollIntoView({behavior:'smooth',block:'start'}),100)
+}
+
+function closeTropaDetalle(){
+  tropaActivaId=null
+  document.getElementById('tropa-detalle').style.display='none'
+}
+
+function renderTropaDetalle(){
+  if(!tropaActivaId)return
+  const t=DB.tropas.find(x=>x.id===tropaActivaId);if(!t)return
+  const loteMap=Object.fromEntries(DB.lotes.map(l=>[l.id,l.nombre]))
+  const animales=DB.animales.filter(a=>a.tropaId===tropaActivaId)
+  const activos=animales.filter(a=>a.estado==='activo')
+
+  document.getElementById('td-titulo').textContent=`🐄 ${t.nombre} — ${t.dueno}`
+
+  // Stats
+  const pesoTotal=activos.reduce((s,a)=>s+(a.peso||0),0)
+  const pesoCount=activos.filter(a=>a.peso>0).length
+  const loteNombre=t.loteId?loteMap[t.loteId]||'—':'Sin lote'
+  document.getElementById('td-stats').innerHTML=`
+    <div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Cabezas activas</div><div class="sc-value">${activos.length}</div></div>
+    <div class="sc"><span class="sc-icon">📦</span><div class="sc-label">Total registrados</div><div class="sc-value">${animales.length}</div></div>
+    <div class="sc"><span class="sc-icon">⚖️</span><div class="sc-label">Peso promedio</div><div class="sc-value o">${pesoCount>0?Math.round(pesoTotal/pesoCount):'-'}<span style="font-size:14px"> kg</span></div></div>
+    <div class="sc"><span class="sc-icon">🗺</span><div class="sc-label">Lote principal</div><div class="sc-value" style="font-size:18px">${loteNombre}</div></div>`
+
+  // Categorías
+  const cats={}
+  activos.forEach(a=>{const k=a.categoria||'Sin cat.';cats[k]=(cats[k]||0)+1})
+  const catEl=document.getElementById('td-categorias')
+  if(catEl){
+    const maxC=Math.max(...Object.values(cats),1)
+    catEl.innerHTML=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([cat,n])=>`
+      <div class="bar-row">
+        <div class="bar-label"><span>${cat}</span><span style="font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700">${n}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(n/maxC*100).toFixed(0)}%;background:var(--green)"></div></div>
+      </div>`).join('') || '<div style="color:var(--hide);font-size:12px">Sin animales</div>'
+  }
+
+  // Finanzas vinculadas
+  const ingresos=DB.ingresos.filter(i=>i.tropaId===tropaActivaId)
+  const egresos=DB.egresos.filter(e=>e.tropaId===tropaActivaId)
+  const totalIng=ingresos.reduce((s,i)=>s+i.importe,0)
+  const totalEgr=egresos.reduce((s,e)=>s+e.importe,0)
+  const finEl=document.getElementById('td-finanzas')
+  if(finEl){
+    finEl.innerHTML=`
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--wheat)">
+        <span style="font-size:13px">Ingresos</span>
+        <span class="money-pos" style="font-family:'Cormorant Garamond',serif;font-size:16px">${$m(totalIng)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--wheat)">
+        <span style="font-size:13px">Egresos</span>
+        <span class="money-neg" style="font-family:'Cormorant Garamond',serif;font-size:16px">${$m(totalEgr)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0">
+        <span style="font-size:13px;font-weight:600">Balance</span>
+        <span class="${totalIng-totalEgr>=0?'money-pos':'money-neg'}" style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700">${$m(totalIng-totalEgr)}</span>
+      </div>
+      ${ingresos.length===0&&egresos.length===0?'<div style="font-size:11px;color:var(--hide);margin-top:8px">Vinculá ingresos/egresos a esta tropa desde los módulos de finanzas</div>':''}`
+  }
+
+  // Tabla animales
+  const tb=document.getElementById('td-animales-tbody');if(!tb)return
+  tb.innerHTML=animales.length?animales.map(a=>`
+    <tr>
+      <td><strong>${a.carimbo}</strong></td>
+      <td>${a.categoria||'-'}</td>
+      <td>${a.raza||'-'}</td>
+      <td>${a.peso||'-'}</td>
+      <td><span class="badge ${a.estado==='activo'?'b-green':a.estado==='vendido'?'b-sky':'b-red'}">${a.estado}</span></td>
+      <td>${a.loteId?loteMap[a.loteId]||'-':'-'}</td>
+      <td><button class="icon-btn" title="Quitar de la tropa" onclick="quitarDeTropa('${a.id}')">✕</button></td>
+    </tr>`).join('')
+  :'<tr class="empty-row"><td colspan="7">Sin animales — usá "+ Asignar Animales"</td></tr>'
+}
+
+function quitarDeTropa(animalId){
+  const a=DB.animales.find(x=>x.id===animalId);if(!a)return
+  a.tropaId='';dbSave(DB);renderTropaDetalle();renderTropasLista()
+  toast(`${a.carimbo} quitado de la tropa`,'↩')
+}
+
+function renderTropasLista(){
+  initTropas()
+  const el=document.getElementById('tropas-lista');if(!el)return
+  const loteMap=Object.fromEntries(DB.lotes.map(l=>[l.id,l.nombre]))
+
+  if(!DB.tropas.length){
+    el.innerHTML=`<div style="text-align:center;padding:48px;color:var(--hide)">
+      <div style="font-size:40px;margin-bottom:12px">🐄</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">Sin tropas creadas</div>
+      <div style="font-size:12px">Creá una tropa para agrupar animales por propietario o lote</div>
+    </div>`;return
+  }
+
+  el.innerHTML=DB.tropas.map(t=>{
+    const animales=DB.animales.filter(a=>a.tropaId===t.id)
+    const activos=animales.filter(a=>a.estado==='activo')
+    const cats={}
+    activos.forEach(a=>{const k=a.categoria||'?';cats[k]=(cats[k]||0)+1})
+    const catResumen=Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${v} ${k}`).join(' · ')
+    const loteNombre=t.loteId?loteMap[t.loteId]||'':''
+    const isActive=t.id===tropaActivaId
+
+    return`<div onclick="openTropa('${t.id}')" style="
+      background:var(--paper);border-radius:12px;
+      border:2px solid ${isActive?'var(--green)':'var(--wheat)'};
+      box-shadow:0 2px 10px var(--shadow);cursor:pointer;
+      transition:all .18s;overflow:hidden;
+    " onmouseover="this.style.borderColor='var(--straw)'" onmouseout="this.style.borderColor='${isActive?'var(--green)':'var(--wheat)'}'">
+      <!-- Header de la carpeta -->
+      <div style="background:${isActive?'var(--green)':'var(--earth)'};padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">📁</span>
+          <div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--straw);font-weight:600">${t.nombre}</div>
+            <div style="font-size:11px;color:var(--hide);margin-top:1px">👤 ${t.dueno}${loteNombre?' · 🗺 '+loteNombre:''}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--straw);line-height:1">${activos.length}</div>
+          <div style="font-size:10px;color:var(--hide)">cabezas activas</div>
+        </div>
+      </div>
+      <!-- Contenido de la carpeta -->
+      <div style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;color:var(--hide)">${catResumen||'Sin animales asignados'}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="badge b-green">${v} ${k}</span>`).join('')}
+        </div>
+      </div>
+      ${t.obs?`<div style="padding:0 18px 12px;font-size:11px;color:var(--hide);font-style:italic">${t.obs}</div>`:''}
+    </div>`
+  }).join('')
+}
+
+// ── Asignar animales ──────────────────────────────
+function openAsignarAnimales(){
+  asigSeleccionados.clear()
+  renderAsignarList()
+  openM('m-asignar')
+}
+function renderAsignarList(){
+  const srch=(document.getElementById('asig-search')||{value:''}).value.toLowerCase()
+  const catF=(document.getElementById('asig-cat')||{value:''}).value
+  // Show animals not in any tropa (or in current tropa)
+  let data=DB.animales.filter(a=>a.estado==='activo'&&(!a.tropaId||a.tropaId===tropaActivaId))
+  if(srch)data=data.filter(a=>a.carimbo.toLowerCase().includes(srch))
+  if(catF)data=data.filter(a=>a.categoria===catF)
+  const tb=document.getElementById('asig-tbody');if(!tb)return
+  tb.innerHTML=data.length?data.map(a=>`
+    <tr style="${asigSeleccionados.has(a.id)?'background:rgba(61,107,74,.06)':''}">
+      <td><input type="checkbox" class="asig-cb" data-id="${a.id}" ${asigSeleccionados.has(a.id)?'checked':''} onchange="toggleAsig('${a.id}',this.checked)"></td>
+      <td><strong>${a.carimbo}</strong></td>
+      <td>${a.categoria||'-'}</td>
+      <td>${a.raza||'-'}</td>
+      <td>${a.peso||'-'}</td>
+      <td><span class="badge ${a.origen==='propio'?'b-green':'b-gold'}">${a.origen==='propio'?'Propio':'Cap.'}</span></td>
+    </tr>`).join('')
+  :'<tr class="empty-row"><td colspan="6">Sin animales disponibles</td></tr>'
+  document.getElementById('asig-count').textContent=`${asigSeleccionados.size} seleccionados`
+}
+function toggleAsig(id,checked){
+  if(checked)asigSeleccionados.add(id)
+  else asigSeleccionados.delete(id)
+  document.getElementById('asig-count').textContent=`${asigSeleccionados.size} seleccionados`
+}
+function selAllAsig(){
+  document.querySelectorAll('.asig-cb').forEach(cb=>{cb.checked=true;asigSeleccionados.add(cb.dataset.id)})
+  document.getElementById('asig-count').textContent=`${asigSeleccionados.size} seleccionados`
+}
+function confirmarAsignacion(){
+  if(!asigSeleccionados.size){alert('Seleccioná al menos un animal.');return}
+  DB.animales.forEach(a=>{if(asigSeleccionados.has(a.id))a.tropaId=tropaActivaId})
+  dbSave(DB)
+  logActivity('Asignó animales a tropa',`${asigSeleccionados.size} animales`)
+  closeM('m-asignar');asigSeleccionados.clear()
+  renderTropaDetalle();renderTropasLista()
+  toast(`${asigSeleccionados.size||'Animales'} asignados a la tropa`,'✅')
+  render()
+}
+
+function renderTropas(){
+  initTropas()
+  renderTropasLista()
+  if(tropaActivaId)renderTropaDetalle()
 }
 
 // ══════════════════════════════════════════════════
@@ -2411,7 +2784,7 @@ function renderLluvia(){
 }
 
 function render(){
-  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios,renderLluvia]
+  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios,renderLluvia,renderTropas]
   fns.forEach(fn=>{try{fn()}catch(e){console.error(fn.name+' failed:',e)}})
 }
 </script>
