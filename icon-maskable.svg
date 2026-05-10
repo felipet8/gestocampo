@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fondo tierra (safe zone extra padding para maskable) -->
+  <rect width="512" height="512" fill="#3D2B1A"/>
+  <!-- Campo -->
+  <ellipse cx="256" cy="340" rx="280" ry="120" fill="#3D6B4A"/>
+  <ellipse cx="256" cy="320" rx="250" ry="90" fill="#5A9469"/>
+  <!-- Sol -->
+  <circle cx="400" cy="110" r="44" fill="#C8A86A" opacity="0.85"/>
+  <!-- Vaca cuerpo -->
+  <ellipse cx="230" cy="280" rx="80" ry="48" fill="#FAF6ED"/>
+  <!-- Vaca cabeza -->
+  <ellipse cx="304" cy="255" rx="38" ry="30" fill="#FAF6ED"/>
+  <!-- Manchas -->
+  <ellipse cx="205" cy="268" rx="27" ry="17" fill="#3D2B1A" opacity="0.22"/>
+  <!-- Ojo -->
+  <circle cx="318" cy="249" r="5" fill="#3D2B1A"/>
+  <!-- Patas -->
+  <rect x="165" y="320" width="16" height="30" rx="5" fill="#E2CFA0"/>
+  <rect x="200" y="325" width="16" height="25" rx="5" fill="#E2CFA0"/>
+  <rect x="248" y="325" width="16" height="25" rx="5" fill="#E2CFA0"/>
+  <rect x="283" y="320" width="16" height="30" rx="5" fill="#E2CFA0"/>
+  <!-- LM -->
+  <text x="256" y="475" font-family="Georgia, serif" font-size="66" font-weight="700" fill="#C8A86A" text-anchor="middle" letter-spacing="6">LM</text>
+</svg>

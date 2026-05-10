@@ -1,0 +1,42 @@
+{
+  "name": "GestoCampo — Las Mulas",
+  "short_name": "Las Mulas",
+  "description": "Sistema de gestión ganadera del Campo Las Mulas",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#3D2B1A",
+  "background_color": "#F2E8D0",
+  "lang": "es-AR",
+  "categories": ["productivity", "business"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Stock Bovino",
+      "short_name": "Stock",
+      "url": "./index.html",
+      "description": "Ver el stock de animales"
+    },
+    {
+      "name": "Registrar Lluvia",
+      "short_name": "Lluvia",
+      "url": "./index.html",
+      "description": "Cargar un registro de lluvia"
+    }
+  ],
+  "screenshots": []
+}

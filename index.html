@@ -9,29 +9,66 @@
 <meta name="apple-mobile-web-app-title" content="Las Mulas">
 <meta name="theme-color" content="#3D2B1A">
 <title>GestoCampo — Las Mulas</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
 <script>
-// ── SERVICE WORKER para modo offline ──────────────
+// ── SERVICE WORKER (archivo real para soporte PWA completo) ──
+let deferredInstallPrompt = null;
 if('serviceWorker' in navigator){
-  // Inline SW as blob URL so it works from any hosting path
-  const swCode=`
-const CACHE='gestocampo-v1';
-const ASSETS=[self.location.href.replace('sw.js',''),'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js','https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS.filter(Boolean))).catch(()=>{}));self.skipWaiting()});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
-self.addEventListener('fetch',e=>{
-  if(e.request.method!=='GET')return;
-  e.respondWith(fetch(e.request).then(r=>{const rc=r.clone();caches.open(CACHE).then(c=>c.put(e.request,rc));return r}).catch(()=>caches.match(e.request)));
-});`;
-  const blob=new Blob([swCode],{type:'application/javascript'});
-  const swUrl=URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl,{scope:'./'}).catch(()=>{});
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg => {
+      // Detectar nueva versión disponible
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if(newSW.state === 'installed' && navigator.serviceWorker.controller){
+            const b = document.getElementById('update-banner');
+            if(b) b.style.display = 'flex';
+          }
+        });
+      });
+    })
+    .catch(e => console.warn('SW registro fallido:', e));
+
+  // Escuchar mensajes del SW (sync background)
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data && e.data.type === 'SYNC_NOW' && typeof syncPendingChanges === 'function'){
+      syncPendingChanges();
+    }
+  });
 }
-// ── Sync cuando vuelve la conexión ────────────────
-window.addEventListener('online',async()=>{
-  if(typeof syncPendingChanges==='function') await syncPendingChanges();
+
+// ── Prompt de instalación PWA ──────────────────────
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const btn = document.getElementById('install-btn');
+  if(btn) btn.style.display = 'flex';
 });
-window.addEventListener('offline',()=>{
-  if(typeof setSyncStatus==='function') setSyncStatus('local');
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('install-btn');
+  if(btn) btn.style.display = 'none';
+  if(typeof toast === 'function') toast('App instalada — ya funciona sin internet','📱');
+});
+
+// ── Online / Offline ───────────────────────────────
+window.addEventListener('online', async () => {
+  const b = document.getElementById('offline-banner');
+  if(b) b.style.display = 'none';
+  if(typeof syncPendingChanges === 'function') await syncPendingChanges();
+});
+window.addEventListener('offline', () => {
+  const b = document.getElementById('offline-banner');
+  if(b) b.style.display = 'flex';
+  if(typeof setSyncStatus === 'function') setSyncStatus('local');
+});
+// Mostrar banner inmediatamente si ya estamos offline al cargar
+document.addEventListener('DOMContentLoaded', () => {
+  if(!navigator.onLine){
+    const b = document.getElementById('offline-banner');
+    if(b) b.style.display = 'flex';
+  }
 });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -297,6 +334,16 @@ tr:hover td{background:rgba(242,232,208,.4)}
 @keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes tOut{to{opacity:0;transform:translateY(6px)}}
 
+/* ── PWA / Offline mejoras ── */
+@keyframes pulse-sync{0%,100%{opacity:1}50%{opacity:.4}}
+#sync-indicator[data-syncing]{animation:pulse-sync 1.2s ease-in-out infinite}
+#install-btn:hover{background:rgba(200,168,106,.25)!important}
+#offline-banner{padding-left:max(18px,env(safe-area-inset-left));padding-right:max(18px,env(safe-area-inset-right))}
+@media(max-width:700px){
+  .hamburger{z-index:2100}  /* encima del banner offline */
+  #offline-banner{font-size:11px;padding:7px 54px 7px 18px}  /* espacio para el hamburger */
+}
+
 /* ACTIVITY LOG */
 .act-item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(200,168,106,.1)}
 .act-item:last-child{border-bottom:none}
@@ -306,6 +353,22 @@ tr:hover td{background:rgba(242,232,208,.4)}
 </style>
 </head>
 <body>
+
+<!-- ══ BANNER OFFLINE ══ -->
+<div id="offline-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:2000;background:#B83C2A;color:#fff;padding:9px 18px;font-size:12px;font-weight:600;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 8px rgba(0,0,0,.3)">
+  <span style="font-size:16px">📵</span>
+  <span>Sin conexión — los cambios se guardan localmente y se subirán al reconectar</span>
+</div>
+
+<!-- ══ BANNER ACTUALIZACIÓN ══ -->
+<div id="update-banner" style="display:none;position:fixed;bottom:72px;right:16px;z-index:1999;background:#3D2B1A;color:#E2CFA0;padding:14px 16px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.4);align-items:center;gap:12px;font-size:13px;max-width:320px;border:1px solid rgba(200,168,106,.3)">
+  <span style="font-size:22px">🔄</span>
+  <div style="flex:1"><div style="font-weight:600;margin-bottom:2px">Nueva versión disponible</div><div style="font-size:11px;opacity:.65">Recargá para obtener las últimas mejoras</div></div>
+  <div style="display:flex;gap:6px;flex-shrink:0">
+    <button onclick="location.reload()" style="background:#C8A86A;color:#1A1208;border:none;border-radius:7px;padding:7px 11px;cursor:pointer;font-size:12px;font-weight:700">Actualizar</button>
+    <button onclick="this.closest('#update-banner').style.display='none'" style="background:rgba(255,255,255,.1);border:none;border-radius:7px;padding:7px 9px;cursor:pointer;color:#E2CFA0;font-size:13px">✕</button>
+  </div>
+</div>
 
 <!-- ══ LOGIN ══ -->
 <div id="login-screen">
@@ -345,11 +408,20 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <div class="nav-sect">Análisis</div>
     <div class="nav-item" onclick="nav('reportes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Reportes</div>
     <div class="nav-item" onclick="nav('lluvia',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="19" x2="8" y2="21"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="16" y1="19" x2="16" y2="21"/><line x1="16" y1="13" x2="16" y2="15"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="12" y1="15" x2="12" y2="17"/><path d="M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25"/></svg>Lluvias</div>
+    <div class="nav-item" onclick="nav('insumos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h10M7 12h6"/></svg>Insumos & Stock</div>
     <div class="nav-sect">Sistema</div>
     <div class="nav-item" id="nav-usuarios" onclick="nav('usuarios',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Usuarios</div>
     <div class="nav-item" onclick="nav('excel',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Excel</div>
   </nav>
   <div class="sidebar-foot">
+    <!-- Botón instalar PWA (aparece solo cuando el navegador lo soporta) -->
+    <div id="install-btn" style="display:none;align-items:center;gap:10px;background:rgba(200,168,106,.15);border:1px solid rgba(200,168,106,.35);border-radius:9px;padding:9px 11px;cursor:pointer;margin-bottom:8px;transition:background .17s" onclick="installApp()">
+      <span style="font-size:20px">📲</span>
+      <div>
+        <div style="font-size:11px;color:var(--straw);font-weight:600;line-height:1.2">Instalar App</div>
+        <div style="font-size:10px;color:var(--hide);margin-top:1px">Funciona sin internet</div>
+      </div>
+    </div>
     <div style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
       <span id="sync-indicator" style="font-size:10px;color:var(--hide)">💾 Local</span>
       <button onclick="manualSync()" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--hide);padding:2px 6px;border-radius:4px;" title="Sincronizar ahora">↺</button>
@@ -786,6 +858,58 @@ tr:hover td{background:rgba(242,232,208,.4)}
   </div>
 </div>
 
+<!-- INSUMOS & STOCK -->
+<div class="page" id="p-insumos">
+  <div class="ph">
+    <div><div class="ph-title">Insumos & Stock</div><div class="ph-sub">Rollos, silo, semillas, agroquímicos y fertilizantes</div></div>
+    <div class="ph-actions">
+      <button class="btn btn-g" style="margin-right:8px" onclick="openM('m-ins-egreso')">📤 Registrar Uso</button>
+      <button class="btn btn-p" onclick="openM('m-ins-ingreso')">📥 Ingreso de Insumos</button>
+    </div>
+  </div>
+
+  <!-- ALERTAS -->
+  <div id="ins-alertas" style="margin-bottom:14px"></div>
+
+  <!-- TABS por categoría -->
+  <div class="tabs">
+    <div class="tab active" onclick="setInsTab('todos',this)">Todos</div>
+    <div class="tab" onclick="setInsTab('forraje',this)">🌾 Forraje</div>
+    <div class="tab" onclick="setInsTab('silo',this)">🏗 Silo</div>
+    <div class="tab" onclick="setInsTab('semillas',this)">🌱 Semillas</div>
+    <div class="tab" onclick="setInsTab('agroquimicos',this)">💊 Agroquímicos</div>
+    <div class="tab" onclick="setInsTab('fertilizantes',this)">⚗️ Fertilizantes</div>
+  </div>
+
+  <!-- PANEL DE STOCK -->
+  <div id="ins-stock-panel" style="margin-bottom:20px"></div>
+
+  <!-- SILOS -->
+  <div id="ins-silos-panel" style="display:none;margin-bottom:20px">
+    <div class="tw">
+      <div class="tw-head">
+        <h3>🏗 Silos de Autoconsumo</h3>
+        <button class="btn btn-g" style="font-size:11px;padding:5px 10px" onclick="openM('m-silo-config')">⚙️ Configurar silos</button>
+      </div>
+      <div style="padding:16px" id="silos-panel"></div>
+    </div>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px">
+    <div class="tw">
+      <div class="tw-head"><h3>📥 Últimos Ingresos</h3></div>
+      <table><thead><tr><th>Fecha</th><th>Insumo</th><th>Cantidad</th><th>Costo</th><th>Obs.</th><th></th></tr></thead>
+      <tbody id="ins-ingresos-tbody"></tbody></table>
+    </div>
+    <div class="tw">
+      <div class="tw-head"><h3>📤 Últimos Usos</h3></div>
+      <table><thead><tr><th>Fecha</th><th>Insumo</th><th>Cantidad</th><th>Tropa/Lote</th><th>Obs.</th><th></th></tr></thead>
+      <tbody id="ins-egresos-tbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
 <!-- EXCEL -->
 <div class="page" id="p-excel">
   <div class="ph"><div><div class="ph-title">Excel</div><div class="ph-sub">Exportar e importar datos</div></div></div>
@@ -894,6 +1018,132 @@ tr:hover td{background:rgba(242,232,208,.4)}
 </div>
 
 <div class="toast-wrap" id="toasts"></div>
+
+<!-- MODAL INGRESO INSUMOS -->
+<div class="mb" id="m-ins-ingreso">
+  <div class="modal" style="width:540px">
+    <div class="mh"><h3>📥 Ingreso de Insumos</h3><button class="x-btn" onclick="closeM('m-ins-ingreso')">✕</button></div>
+    <div class="mb-body">
+      <div class="fr">
+        <div class="fg"><label>Fecha *</label><input id="iin-fecha" type="date"></div>
+        <div class="fg"><label>Categoría *</label>
+          <select id="iin-cat" onchange="updateInsIngresoFields()">
+            <option value="rollo">Rollo</option>
+            <option value="silo">Silo autoconsumo</option>
+            <option value="semilla">Semilla</option>
+            <option value="agroquimico">Agroquímico</option>
+            <option value="fertilizante">Fertilizante</option>
+          </select>
+        </div>
+      </div>
+      <!-- Rollo: tipo -->
+      <div id="iin-rollo-fg" class="fg">
+        <label>Tipo de rollo *</label>
+        <select id="iin-rollo-tipo">
+          <option value="pastura">Pastura</option>
+          <option value="verdeo">Verdeo</option>
+          <option value="avena">Avena</option>
+          <option value="rye grass">Rye grass</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <!-- Silo: qué silo -->
+      <div id="iin-silo-fg" class="fg" style="display:none">
+        <label>Silo *</label>
+        <select id="iin-silo-id"></select>
+      </div>
+      <!-- Otros: nombre del insumo -->
+      <div id="iin-nombre-fg" class="fg" style="display:none">
+        <label>Nombre del insumo *</label>
+        <input id="iin-nombre" placeholder="ej. Rye grass, Glifosato, Urea…">
+      </div>
+      <div class="fr">
+        <div class="fg"><label id="iin-cant-label">Cantidad *</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="iin-cantidad" type="number" step="0.01" min="0" placeholder="0" style="flex:1">
+            <select id="iin-unidad" style="width:80px;padding:8px 6px;border:1.5px solid var(--wheat);border-radius:7px;font-size:13px;background:var(--paper)">
+              <option value="rollos">rollos</option>
+              <option value="tn">tn</option>
+              <option value="kg">kg</option>
+              <option value="L">L</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg"><label>Costo ($)</label><input id="iin-costo" type="number" step="0.01" placeholder="Opcional"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Proveedor</label><input id="iin-proveedor" placeholder="Opcional"></div>
+        <div class="fg"><label>Observaciones</label><input id="iin-obs" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeM('m-ins-ingreso')">Cancelar</button>
+      <button class="btn btn-p" onclick="saveInsIngreso()">Registrar Ingreso</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EGRESO / USO INSUMOS -->
+<div class="mb" id="m-ins-egreso">
+  <div class="modal" style="width:560px">
+    <div class="mh"><h3>📤 Registrar Uso de Insumo</h3><button class="x-btn" onclick="closeM('m-ins-egreso')">✕</button></div>
+    <div class="mb-body">
+      <div class="fr">
+        <div class="fg"><label>Fecha *</label><input id="ieg-fecha" type="date"></div>
+        <div class="fg"><label>Categoría *</label>
+          <select id="ieg-cat" onchange="updateInsEgresoFields()">
+            <option value="rollo">Rollo</option>
+            <option value="silo">Silo autoconsumo</option>
+            <option value="semilla">Semilla</option>
+            <option value="agroquimico">Agroquímico</option>
+            <option value="fertilizante">Fertilizante</option>
+          </select>
+        </div>
+      </div>
+      <!-- Selector dinámico de insumo -->
+      <div class="fg">
+        <label>Insumo *</label>
+        <select id="ieg-insumo" onchange="updateEgresoStock()"></select>
+      </div>
+      <!-- Stock disponible -->
+      <div id="ieg-stock-info" style="background:rgba(61,107,74,.07);border:1px solid rgba(61,107,74,.2);border-radius:7px;padding:8px 12px;font-size:12px;margin-bottom:8px;display:none">
+        <span id="ieg-stock-label"></span>
+      </div>
+      <div class="fr">
+        <div class="fg">
+          <label id="ieg-cant-label">Cantidad *</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input id="ieg-cantidad" type="number" step="0.01" min="0" placeholder="0" style="flex:1" oninput="updateEgresoStockAfter()">
+            <span id="ieg-unidad-label" style="font-size:12px;color:var(--hide);min-width:32px">kg</span>
+          </div>
+        </div>
+        <div class="fg"><label>Destino (tropa / lote)</label><select id="ieg-destino"><option value="">Sin especificar</option></select></div>
+      </div>
+      <div id="ieg-stock-after" style="font-size:11px;color:var(--hide);margin-bottom:8px;display:none"></div>
+      <div class="fg"><label>Potrero donde se aplicó</label><select id="ieg-lote"><option value="">Sin especificar</option></select></div>
+      <div class="fg"><label>Observaciones</label><input id="ieg-obs" placeholder="Notas…"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeM('m-ins-egreso')">Cancelar</button>
+      <button class="btn btn-p" onclick="saveInsEgreso()">Registrar Uso</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIG SILOS -->
+<div class="mb" id="m-silo-config">
+  <div class="modal">
+    <div class="mh"><h3>⚙️ Configurar Silos</h3><button class="x-btn" onclick="closeM('m-silo-config')">✕</button></div>
+    <div class="mb-body">
+      <p style="font-size:12px;color:var(--hide);margin-bottom:14px">Configurá los 4 silos de autoconsumo.</p>
+      <div id="silo-config-list"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeM('m-silo-config')">Cancelar</button>
+      <button class="btn btn-p" onclick="saveSiloConfig()">Guardar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL LLUVIA -->
 <div class="mb" id="m-tropa">
@@ -1087,12 +1337,22 @@ const USE_JSONBIN = JSONBIN_ID !== 'TU_BIN_ID_AQUI'
 
 const DB_LOCAL_KEY = 'gc_lasmulas_2026'  // cache local para modo offline
 
-let DB = {animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[]}
+let DB = {animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[],insIngresos:[],insEgresos:[],silosConfig:[
+  {id:'s1',nombre:'Silo 1',capacidad:12,cultivo:'Maíz'},
+  {id:'s2',nombre:'Silo 2',capacidad:12,cultivo:'Maíz'},
+  {id:'s3',nombre:'Silo 3',capacidad:12,cultivo:'Maíz'},
+  {id:'s4',nombre:'Silo 4',capacidad:12,cultivo:'Maíz'},
+],insConfig:{}}
 let syncStatus = 'local'  // 'local' | 'syncing' | 'ok' | 'error'
 let syncDebounce = null
 
 function dbEmpty(){
-  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[]}
+  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[],insIngresos:[],insEgresos:[],silosConfig:[
+    {id:'s1',nombre:'Silo 1',capacidad:12,cultivo:'Maíz'},
+    {id:'s2',nombre:'Silo 2',capacidad:12,cultivo:'Maíz'},
+    {id:'s3',nombre:'Silo 3',capacidad:12,cultivo:'Maíz'},
+    {id:'s4',nombre:'Silo 4',capacidad:12,cultivo:'Maíz'},
+  ],insConfig:{}}
 }
 
 // Cargar desde JSONBin (o localStorage como fallback)
@@ -1131,25 +1391,49 @@ function lsGetDb(){
 }
 
 function mergeLocalRemote(local,remote){
-  // Use whichever has more records in each collection (local changes take priority if newer)
-  const winner=(a,b)=>((a||[]).length>=(b||[]).length)?a:b
+  // Union merge por ID: agrega registros del remoto que no existen localmente.
+  // Los registros locales tienen prioridad (cambios recientes del usuario actual).
+  function unionById(loc,rem){
+    const localIds=new Set((loc||[]).map(r=>r.id))
+    const base=[...(loc||[])]
+    ;(rem||[]).forEach(r=>{ if(!localIds.has(r.id)) base.push(r) })
+    return base
+  }
+  // Para actlog siempre unión y limitar
+  function unionLog(loc,rem){
+    const seen=new Set()
+    const merged=[...(loc||[]),...(rem||[])].filter(r=>{
+      if(!r.ts||seen.has(r.ts+r.uid+r.action))return false
+      seen.add(r.ts+r.uid+r.action);return true
+    })
+    return merged.sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,300)
+  }
+  // Versión: la más reciente gana
+  const version=Math.max(local._version||0, remote._version||0)
   return{
-    animales: winner(local.animales,remote.animales),
-    lotes:    (local.lotes&&local.lotes.length>0)?local.lotes:remote.lotes,
-    ingresos: winner(local.ingresos,remote.ingresos),
-    egresos:  winner(local.egresos,remote.egresos),
-    actlog:   winner(local.actlog,remote.actlog),
-    lluvias:  winner(local.lluvias||[],remote.lluvias||[]),
-    tropas:   winner(local.tropas||[],remote.tropas||[]),
+    _version: version,
+    animales:    unionById(local.animales,   remote.animales),
+    lotes:       (local.lotes&&local.lotes.length>0)?local.lotes:remote.lotes,
+    ingresos:    unionById(local.ingresos,   remote.ingresos),
+    egresos:     unionById(local.egresos,    remote.egresos),
+    actlog:      unionLog(local.actlog,      remote.actlog),
+    lluvias:     unionById(local.lluvias||[],remote.lluvias||[]),
+    tropas:      unionById(local.tropas||[], remote.tropas||[]),
+    insIngresos: unionById(local.insIngresos||[],remote.insIngresos||[]),
+    insEgresos:  unionById(local.insEgresos||[], remote.insEgresos||[]),
+    silosConfig: (local.silosConfig&&local.silosConfig.length)?local.silosConfig:remote.silosConfig||[],
+    insConfig:   Object.assign({},remote.insConfig||{},local.insConfig||{}),
   }
 }
 
-// Guardar: siempre local primero, luego push async (sin debounce mínimo para no perder datos)
+// Guardar: siempre local primero, luego push async
 function dbSave(db){
+  db._version = Date.now()
   localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(db))
   if(!USE_JSONBIN)return
+  setPending(true)
   clearTimeout(syncDebounce)
-  syncDebounce=setTimeout(()=>dbPush(db),1200)
+  syncDebounce=setTimeout(()=>dbPush(db),1400)
 }
 
 async function dbPush(db){
@@ -1177,7 +1461,8 @@ function startAutoRefresh(){
   stopAutoRefresh()
   if(!USE_JSONBIN)return
   autoRefreshInterval=setInterval(async()=>{
-    if(syncDebounce)return  // hay un push pendiente, no refrescar ahora
+    if(syncDebounce)return  // push pendiente, no refrescar ahora
+    if(!navigator.onLine)return
     try{
       const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,{
         headers:{'X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'}
@@ -1185,15 +1470,15 @@ function startAutoRefresh(){
       if(!r.ok)return
       const remote=await r.json()
       if(!remote.lotes||remote.lotes.length===0)remote.lotes=LOTES_SHAPE.map(l=>({...l}))
-      // Only update if remote has genuinely more data (another user added something)
-      const remoteTotal=(remote.animales||[]).length+(remote.ingresos||[]).length+(remote.egresos||[]).length
-      const localTotal=DB.animales.length+DB.ingresos.length+DB.egresos.length
-      if(remoteTotal>localTotal){
+      // Actualizar solo si el remoto tiene una versión más nueva (otro usuario guardó)
+      const remoteVersion=remote._version||0
+      const localVersion=DB._version||0
+      if(remoteVersion>localVersion){
         const merged=mergeLocalRemote(DB,remote)
         DB=merged
         localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(DB))
         render()
-        toast('Nuevos datos de otro usuario','🔄')
+        toast('Datos actualizados desde otro dispositivo','🔄')
       }
       setSyncStatus('ok')
     }catch(e){setSyncStatus(navigator.onLine?'error':'local')}
@@ -1205,10 +1490,19 @@ function setSyncStatus(s){
   syncStatus=s
   const el=document.getElementById('sync-indicator')
   if(!el)return
-  const icons={local:'💾',syncing:'⏳',ok:'☁️',error:'⚠️'}
-  const labels={local:'Local',syncing:'Sincronizando…',ok:'Sincronizado',error:'Sin conexión'}
-  el.textContent=icons[s]+' '+labels[s]
-  el.style.color=s==='error'?'var(--rust)':s==='ok'?'var(--green2)':s==='syncing'?'var(--gold)':'var(--hide)'
+  const pending=getPending()
+  const cfg={
+    local:   {icon:'💾',label:'Solo local',     color:'var(--hide)'},
+    syncing: {icon:'⏳',label:'Sincronizando…', color:'var(--gold)'},
+    ok:      {icon:'☁️',label:pending?'Pendiente':'Sincronizado', color:pending?'var(--gold)':'var(--green2)'},
+    error:   {icon:'⚠️',label:'Error de sync',  color:'var(--rust)'},
+  }
+  const {icon,label,color}=cfg[s]||cfg.local
+  el.innerHTML=`<span>${icon}</span> <span>${label}</span>`
+  el.style.color=color
+  el.title=s==='error'?'Tocá ↺ para reintentar':s==='syncing'?'Subiendo cambios…':s==='ok'&&pending?'Hay cambios por subir':''
+  if(s==='syncing') el.setAttribute('data-syncing','1')
+  else el.removeAttribute('data-syncing')
 }
 
 function logActivity(action,detail){
@@ -1313,6 +1607,29 @@ function openM(id){
   if(f&&!f.value)f.value=today()
   if(id==='m-animal')populateLoteSelect()
   if(id==='m-ing'){toggleIngFields()}
+  if(id==='m-ins-ingreso'){
+    updateInsIngresoFields()
+    // populate silo selector
+    const siloSel=document.getElementById('iin-silo-id')
+    if(siloSel)siloSel.innerHTML=(DB.silosConfig||[]).map(s=>`<option value="${s.id}">${s.nombre} (${getSiloStock(s.id)}/${s.capacidad}tn)</option>`).join('')
+  }
+  if(id==='m-ins-egreso'){
+    updateInsEgresoFields()
+    // populate destino (tropas)
+    const destSel=document.getElementById('ieg-destino')
+    if(destSel)destSel.innerHTML='<option value="">Sin especificar</option>'+(DB.tropas||[]).map(t=>`<option value="${t.id}">${t.nombre}</option>`).join('')
+    const loteSel=document.getElementById('ieg-lote')
+    if(loteSel)loteSel.innerHTML='<option value="">Sin especificar</option>'+DB.lotes.map(l=>`<option value="${l.id}">${l.nombre}</option>`).join('')
+  }
+  if(id==='m-silo-config'){
+    const list=document.getElementById('silo-config-list')
+    if(list)list.innerHTML=(DB.silosConfig||[]).map((s,i)=>`
+      <div class="fr" style="margin-bottom:10px;align-items:center">
+        <div class="fg" style="margin:0"><label>Nombre</label><input id="scfg-nombre-${i}" value="${s.nombre}"></div>
+        <div class="fg" style="margin:0"><label>Capacidad (tn)</label><input id="scfg-cap-${i}" type="number" value="${s.capacidad}"></div>
+        <div class="fg" style="margin:0"><label>Cultivo/Contenido</label><input id="scfg-cultivo-${i}" value="${s.cultivo||''}"></div>
+      </div>`).join('')
+  }
   if(id==='m-lluvia'){populateLluviaLote()}
   if(id==='m-tropa'){populateTropaLote()}
 }
@@ -2171,6 +2488,15 @@ function cancelImport(){document.getElementById('import-area').style.display='no
 // ══════════════════════════════════════════════════
 // MASTER RENDER
 // ══════════════════════════════════════════════════
+async function installApp(){
+  if(!deferredInstallPrompt){toast('El navegador no tiene el prompt listo aún','ℹ️');return}
+  deferredInstallPrompt.prompt()
+  const {outcome} = await deferredInstallPrompt.userChoice
+  deferredInstallPrompt = null
+  document.getElementById('install-btn').style.display = 'none'
+  if(outcome === 'accepted') toast('Instalando GestoCampo…','📱')
+}
+
 async function manualSync(){
   if(!USE_JSONBIN){toast('Configurá JSONBin para sincronizar entre dispositivos','💾');return}
   toast('Sincronizando…','⏳')
@@ -2783,8 +3109,327 @@ function renderLluvia(){
     </div>`).join('')
 }
 
+// ══════════════════════════════════════════════════
+// INSUMOS & STOCK
+// ══════════════════════════════════════════════════
+const INS_CAT_LABEL={rollo:'Rollo',silo:'Silo',semilla:'Semilla',agroquimico:'Agroquímico',fertilizante:'Fertilizante'}
+const INS_CAT_BADGE={rollo:'b-green',silo:'b-bark',semilla:'b-gold',agroquimico:'b-red',fertilizante:'b-sky'}
+const INS_CAT_UNIT={rollo:'rollos',silo:'tn',semilla:'kg',agroquimico:'L',fertilizante:'kg'}
+const INS_CAT_ICON={rollo:'🌾',silo:'🏗',semilla:'🌱',agroquimico:'💊',fertilizante:'⚗️'}
+const ROLLO_TIPOS=['pastura','verdeo','avena','rye grass','otro']
+const ROLLO_TIPO_LABEL={pastura:'Pastura',verdeo:'Verdeo',avena:'Avena','rye grass':'Rye grass',otro:'Otro'}
+let insTab='todos'
+
+// ── Stock engine ──────────────────────────────────
+function getInsStock(cat, nombre){
+  if(!DB.insIngresos)DB.insIngresos=[]
+  if(!DB.insEgresos)DB.insEgresos=[]
+  const ing=DB.insIngresos.filter(i=>i.cat===cat&&i.nombre===nombre).reduce((a,i)=>a+i.cantidad,0)
+  const egr=DB.insEgresos.filter(e=>e.cat===cat&&e.nombre===nombre).reduce((a,e)=>a+e.cantidad,0)
+  return Math.round((ing-egr)*100)/100
+}
+
+function getSiloStock(siloId){
+  const ing=DB.insIngresos.filter(i=>i.cat==='silo'&&i.siloId===siloId).reduce((a,i)=>a+i.cantidad,0)
+  const egr=DB.insEgresos.filter(e=>e.cat==='silo'&&e.siloId===siloId).reduce((a,e)=>a+e.cantidad,0)
+  return Math.round((ing-egr)*100)/100
+}
+
+// Build a flat list of all known insumos (for selectors)
+function getAllInsumos(){
+  const list=[]
+  // Rollos por tipo
+  ROLLO_TIPOS.forEach(t=>{
+    const nombre=`Rollo — ${ROLLO_TIPO_LABEL[t]}`
+    list.push({cat:'rollo',nombre,unidad:'rollos',key:`rollo|${t}`})
+  })
+  // Silos
+  ;(DB.silosConfig||[]).forEach(s=>{
+    list.push({cat:'silo',nombre:s.nombre+' — '+(s.cultivo||''),unidad:'tn',key:`silo|${s.id}`,siloId:s.id})
+  })
+  // Semillas, agroquimicos, fertilizantes — from ingresos history
+  ;['semilla','agroquimico','fertilizante'].forEach(cat=>{
+    const names=new Set()
+    DB.insIngresos.filter(i=>i.cat===cat).forEach(i=>names.add(i.nombre))
+    names.forEach(nombre=>list.push({cat,nombre,unidad:INS_CAT_UNIT[cat],key:`${cat}|${nombre}`}))
+  })
+  return list
+}
+
+function setInsTab(t,el){
+  insTab=t
+  document.querySelectorAll('#p-insumos .tab').forEach(x=>x.classList.remove('active'))
+  el.classList.add('active')
+  renderInsumos()
+}
+
+// ── Modal: ingreso ────────────────────────────────
+function updateInsIngresoFields(){
+  const cat=document.getElementById('iin-cat').value
+  document.getElementById('iin-rollo-fg').style.display=cat==='rollo'?'block':'none'
+  document.getElementById('iin-silo-fg').style.display=cat==='silo'?'block':'none'
+  document.getElementById('iin-nombre-fg').style.display=['semilla','agroquimico','fertilizante'].includes(cat)?'block':'none'
+  const unidad=document.getElementById('iin-unidad')
+  const opts={rollo:'<option value="rollos">rollos</option>',
+    silo:'<option value="tn">tn</option><option value="kg">kg</option>',
+    semilla:'<option value="kg">kg</option>',
+    agroquimico:'<option value="L">L</option><option value="kg">kg</option>',
+    fertilizante:'<option value="kg">kg</option><option value="L">L</option>'}
+  unidad.innerHTML=opts[cat]||'<option value="kg">kg</option>'
+}
+
+function saveInsIngreso(){
+  if(!DB.insIngresos)DB.insIngresos=[]
+  const fecha=document.getElementById('iin-fecha').value
+  const cat=document.getElementById('iin-cat').value
+  const cantidad=parseFloat(document.getElementById('iin-cantidad').value)||0
+  const unidad=document.getElementById('iin-unidad').value
+  if(!fecha||cantidad<=0){alert('Completá fecha y cantidad.');return}
+
+  let nombre='', siloId=''
+  if(cat==='rollo'){nombre=`Rollo — ${ROLLO_TIPO_LABEL[document.getElementById('iin-rollo-tipo').value]}`}
+  else if(cat==='silo'){
+    siloId=document.getElementById('iin-silo-id').value
+    const silo=DB.silosConfig.find(s=>s.id===siloId)
+    nombre=silo?silo.nombre:siloId
+    // Check capacity
+    const currentStock=getSiloStock(siloId)
+    const cap=silo?.capacidad||12
+    if(currentStock+cantidad>cap){
+      if(!confirm(`El silo tiene capacidad de ${cap}tn y ya tiene ${currentStock}tn. Total quedaría ${currentStock+cantidad}tn. ¿Continuar?`))return
+    }
+  }
+  else{
+    nombre=document.getElementById('iin-nombre').value.trim()
+    if(!nombre){alert('Ingresá el nombre del insumo.');return}
+  }
+
+  DB.insIngresos.push({id:uid(),fecha,cat,nombre,siloId,cantidad,unidad,
+    costo:parseFloat(document.getElementById('iin-costo').value)||0,
+    proveedor:document.getElementById('iin-proveedor').value.trim(),
+    obs:document.getElementById('iin-obs').value.trim(),
+    uid:currentUser.id,uname:currentUser.name
+  })
+  dbSave(DB);closeM('m-ins-ingreso')
+  clr('iin-cantidad','iin-costo','iin-proveedor','iin-obs','iin-nombre')
+  logActivity('Ingreso insumo',`${nombre} — ${cantidad}${unidad}`)
+  render();toast(`${cantidad}${unidad} de ${nombre} ingresados`,'📥')
+}
+
+// ── Modal: egreso / uso ───────────────────────────
+function updateInsEgresoFields(){
+  const cat=document.getElementById('ieg-cat').value
+  const sel=document.getElementById('ieg-insumo')
+  const all=getAllInsumos().filter(i=>i.cat===cat)
+  sel.innerHTML=all.map(i=>`<option value="${i.key}">${i.nombre}</option>`).join('')||'<option value="">Sin stock registrado</option>'
+  // unit label
+  const unit=INS_CAT_UNIT[cat]||'kg'
+  const ul=document.getElementById('ieg-unidad-label')
+  if(ul)ul.textContent=unit
+  updateEgresoStock()
+}
+
+function updateEgresoStock(){
+  const key=(document.getElementById('ieg-insumo')?.value||'')
+  if(!key){document.getElementById('ieg-stock-info').style.display='none';return}
+  const [cat,nombre]=key.split('|')
+  let stock, unidad
+  if(cat==='silo'){stock=getSiloStock(nombre);unidad='tn'}
+  else{
+    const insumo=getAllInsumos().find(i=>i.key===key)
+    stock=getInsStock(cat,insumo?.nombre||nombre)
+    unidad=insumo?.unidad||INS_CAT_UNIT[cat]||'kg'
+    const ul=document.getElementById('ieg-unidad-label')
+    if(ul)ul.textContent=unidad
+  }
+  const info=document.getElementById('ieg-stock-info')
+  if(info){
+    info.style.display='block'
+    const color=stock<=0?'var(--rust)':stock<10?'var(--gold)':'var(--green)'
+    document.getElementById('ieg-stock-label').innerHTML=
+      `📦 Stock disponible: <strong style="color:${color}">${stock} ${unidad}</strong>`
+  }
+  updateEgresoStockAfter()
+}
+
+function updateEgresoStockAfter(){
+  const key=document.getElementById('ieg-insumo')?.value||''
+  const cant=parseFloat(document.getElementById('ieg-cantidad')?.value)||0
+  const afterEl=document.getElementById('ieg-stock-after')
+  if(!afterEl||!key||!cant)return(afterEl.style.display='none')
+  const [cat,nombre]=key.split('|')
+  let stock
+  if(cat==='silo')stock=getSiloStock(nombre)
+  else{const insumo=getAllInsumos().find(i=>i.key===key);stock=getInsStock(cat,insumo?.nombre||nombre)}
+  const after=stock-cant
+  const unit=(getAllInsumos().find(i=>i.key===key)?.unidad)||INS_CAT_UNIT[cat]||'kg'
+  afterEl.style.display='block'
+  afterEl.innerHTML=`Después del uso quedarán: <strong style="color:${after<0?'var(--rust)':after<10?'var(--gold)':'var(--hide)'}">${after} ${unit}</strong>${after<0?' ⚠️ Stock insuficiente':''}`
+}
+
+function saveInsEgreso(){
+  if(!DB.insEgresos)DB.insEgresos=[]
+  const fecha=document.getElementById('ieg-fecha').value
+  const cat=document.getElementById('ieg-cat').value
+  const key=document.getElementById('ieg-insumo').value
+  const cantidad=parseFloat(document.getElementById('ieg-cantidad').value)||0
+  if(!fecha||!key||cantidad<=0){alert('Completá fecha, insumo y cantidad.');return}
+  const [,nombre]=key.split('|')
+  const insumo=getAllInsumos().find(i=>i.key===key)
+  const siloId=cat==='silo'?nombre:''
+  const stock=cat==='silo'?getSiloStock(siloId):getInsStock(cat,insumo?.nombre||nombre)
+  if(cantidad>stock){
+    if(!confirm(`Stock insuficiente (${stock} disponibles). ¿Continuar igual?`))return
+  }
+  DB.insEgresos.push({id:uid(),fecha,cat,nombre:insumo?.nombre||nombre,siloId,cantidad,
+    unidad:insumo?.unidad||INS_CAT_UNIT[cat]||'kg',
+    destino:document.getElementById('ieg-destino').value,
+    loteId:document.getElementById('ieg-lote').value,
+    obs:document.getElementById('ieg-obs').value.trim(),
+    uid:currentUser.id,uname:currentUser.name
+  })
+  dbSave(DB);closeM('m-ins-egreso')
+  clr('ieg-cantidad','ieg-obs')
+  logActivity('Uso insumo',`${insumo?.nombre||nombre} — ${cantidad}`)
+  render();toast(`${cantidad} ${insumo?.unidad||''} usados`,'📤')
+}
+
+function delInsIngreso(id){if(!confirm('¿Eliminar?'))return;DB.insIngresos=DB.insIngresos.filter(i=>i.id!==id);dbSave(DB);render()}
+function delInsEgreso(id){if(!confirm('¿Eliminar?'))return;DB.insEgresos=DB.insEgresos.filter(i=>i.id!==id);dbSave(DB);render()}
+
+// ── Silos config ──────────────────────────────────
+function saveSiloConfig(){
+  ;(DB.silosConfig||[]).forEach((s,i)=>{
+    const n=document.getElementById(`scfg-nombre-${i}`)
+    const c=document.getElementById(`scfg-cap-${i}`)
+    const cu=document.getElementById(`scfg-cultivo-${i}`)
+    if(n)s.nombre=n.value.trim()||s.nombre
+    if(c)s.capacidad=parseFloat(c.value)||s.capacidad
+    if(cu)s.cultivo=cu.value.trim()
+  })
+  dbSave(DB);closeM('m-silo-config');render();toast('Silos actualizados','🏗')
+}
+
+// ── Render ────────────────────────────────────────
+function renderInsumos(){
+  if(!DB.insIngresos)DB.insIngresos=[]
+  if(!DB.insEgresos)DB.insEgresos=[]
+  const loteMap=Object.fromEntries(DB.lotes.map(l=>[l.id,l.nombre]))
+  const tropaMap=Object.fromEntries((DB.tropas||[]).map(t=>[t.id,t.nombre]))
+
+  // ── Alertas ─────────────────────────────────────
+  const alertas=[]
+  getAllInsumos().forEach(ins=>{
+    const stock=ins.cat==='silo'?getSiloStock(ins.siloId||ins.nombre.split(' ')[1]):getInsStock(ins.cat,ins.nombre)
+    const min=(DB.insConfig?.[ins.key]?.minimo)||0
+    if(min>0&&stock<min)alertas.push(`${ins.nombre}: ${stock} ${ins.unidad}`)
+  })
+  const alertasEl=document.getElementById('ins-alertas')
+  if(alertasEl)alertasEl.innerHTML=alertas.length
+    ?`<div style="background:rgba(184,60,42,.1);border:2px solid var(--rust);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px"><span style="font-size:20px">⚠️</span><div><strong style="color:var(--rust)">Stock bajo:</strong> <span style="font-size:13px">${alertas.join(' · ')}</span></div></div>`
+    :''
+
+  // ── Panel de stock ───────────────────────────────
+  const panel=document.getElementById('ins-stock-panel');if(!panel)return
+  const cats=['rollo','silo','semilla','agroquimico','fertilizante']
+  const showCats=insTab==='todos'?cats:
+    insTab==='forraje'?['rollo','silo']:
+    insTab==='silos'?['silo']:
+    [insTab==='semillas'?'semilla':insTab==='agroquimicos'?'agroquimico':'fertilizante']
+
+  let html=''
+  showCats.forEach(cat=>{
+    const items=getAllInsumos().filter(i=>i.cat===cat)
+    if(!items.length&&cat!=='rollo'&&cat!=='silo')return
+    // For rollos show all types even if stock=0
+    const renderItems=cat==='rollo'?ROLLO_TIPOS.map(t=>({cat:'rollo',nombre:`Rollo — ${ROLLO_TIPO_LABEL[t]}`,unidad:'rollos',key:`rollo|${t}`})):
+      cat==='silo'?(DB.silosConfig||[]).map(s=>({cat:'silo',nombre:s.nombre,cultivo:s.cultivo,unidad:'tn',key:`silo|${s.id}`,siloId:s.id,capacidad:s.capacidad})):
+      items
+
+    if(!renderItems.length)return
+    html+=`<div style="margin-bottom:18px">
+      <div style="font-size:11px;font-weight:700;color:var(--hide);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${INS_CAT_ICON[cat]} ${INS_CAT_LABEL[cat]}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">`
+
+    renderItems.forEach(ins=>{
+      const stock=ins.cat==='silo'?getSiloStock(ins.siloId):getInsStock(ins.cat,ins.nombre)
+      const min=(DB.insConfig?.[ins.key]?.minimo)||0
+      const bajo=min>0&&stock<min
+      const pct=ins.capacidad>0?Math.min(100,stock/ins.capacidad*100):0
+      const color=bajo?'var(--rust)':stock<=0?'var(--hide)':'var(--green)'
+      html+=`<div style="background:${bajo?'rgba(184,60,42,.06)':'var(--parch)'};border:1.5px solid ${bajo?'var(--rust)':'var(--wheat)'};border-radius:9px;padding:12px 16px;min-width:130px;max-width:180px">
+        <div style="font-size:10px;font-weight:600;color:var(--hide);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">${ins.nombre}${ins.cultivo?' — '+ins.cultivo:''}</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:700;color:${color};line-height:1">${stock}</div>
+        <div style="font-size:11px;color:var(--hide)">${ins.unidad}${ins.capacidad?' / cap: '+ins.capacidad+'tn':''}</div>
+        ${ins.capacidad?`<div style="height:4px;background:rgba(0,0,0,.08);border-radius:2px;margin-top:5px"><div style="height:4px;background:${color};border-radius:2px;width:${pct.toFixed(0)}%"></div></div>`:''}
+        ${bajo?'<div style="font-size:10px;color:var(--rust);font-weight:600;margin-top:3px">⚠️ Stock bajo</div>':''}
+      </div>`
+    })
+    html+='</div></div>'
+  })
+  panel.innerHTML=html||'<div style="color:var(--hide);font-size:12px;padding:8px">Usá "📥 Ingreso de Insumos" para cargar el stock inicial.</div>'
+
+  // ── Silos detail ─────────────────────────────────
+  const silosPanel=document.getElementById('ins-silos-panel')
+  if(silosPanel)silosPanel.style.display=(insTab==='todos'||insTab==='silo'||insTab==='forraje')?'block':'none'
+  const silosPanelInner=document.getElementById('silos-panel')
+  if(silosPanelInner){
+    silosPanelInner.innerHTML=(DB.silosConfig||[]).map(s=>{
+      const stock=getSiloStock(s.id)
+      const pct=Math.min(100,stock/s.capacidad*100)
+      const color=pct<20?'var(--rust)':pct<50?'var(--gold)':'var(--green)'
+      return`<div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <strong>${s.nombre}</strong>
+          <span style="font-size:12px;color:var(--hide)">${s.cultivo||''} · ${s.capacidad}tn capacidad</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1;height:18px;background:rgba(0,0,0,.06);border-radius:9px;overflow:hidden">
+            <div style="height:100%;background:${color};border-radius:9px;width:${pct.toFixed(0)}%;transition:width .3s"></div>
+          </div>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:${color};min-width:80px;text-align:right">${stock} / ${s.capacidad} tn</span>
+        </div>
+      </div>`
+    }).join('')
+  }
+
+  // ── Tablas historial ──────────────────────────────
+  const filterCat=insTab==='todos'?null:
+    insTab==='forraje'?['rollo','silo']:
+    insTab==='semillas'?['semilla']:
+    insTab==='agroquimicos'?['agroquimico']:
+    insTab==='fertilizantes'?['fertilizante']:null
+
+  const ing=[...DB.insIngresos].sort((a,b)=>b.fecha.localeCompare(a.fecha))
+    .filter(i=>!filterCat||(Array.isArray(filterCat)?filterCat.includes(i.cat):i.cat===filterCat))
+  const tbI=document.getElementById('ins-ingresos-tbody')
+  if(tbI)tbI.innerHTML=ing.slice(0,20).map(i=>`
+    <tr>
+      <td>${$fd(i.fecha)}</td>
+      <td><span class="badge ${INS_CAT_BADGE[i.cat]||'b-bark'}">${i.nombre}</span></td>
+      <td style="font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:700;color:var(--green)">+${i.cantidad} <span style="font-size:11px;color:var(--hide)">${i.unidad}</span></td>
+      <td>${i.costo>0?$m(i.costo):'-'}</td>
+      <td style="font-size:11px;color:var(--hide)">${i.obs||i.proveedor||'-'}</td>
+      <td><button class="icon-btn" onclick="delInsIngreso('${i.id}')">🗑</button></td>
+    </tr>`).join('') || '<tr class="empty-row"><td colspan="6">Sin ingresos</td></tr>'
+
+  const egr=[...DB.insEgresos].sort((a,b)=>b.fecha.localeCompare(a.fecha))
+    .filter(e=>!filterCat||(Array.isArray(filterCat)?filterCat.includes(e.cat):e.cat===filterCat))
+  const tbE=document.getElementById('ins-egresos-tbody')
+  if(tbE)tbE.innerHTML=egr.slice(0,20).map(e=>{
+    const dest=e.destino?(tropaMap[e.destino]||e.destino):e.loteId?(loteMap[e.loteId]||e.loteId):'-'
+    return`<tr>
+      <td>${$fd(e.fecha)}</td>
+      <td><span class="badge ${INS_CAT_BADGE[e.cat]||'b-bark'}">${e.nombre}</span></td>
+      <td style="font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:700;color:var(--rust)">-${e.cantidad} <span style="font-size:11px;color:var(--hide)">${e.unidad}</span></td>
+      <td style="font-size:12px">${dest}</td>
+      <td style="font-size:11px;color:var(--hide)">${e.obs||'-'}</td>
+      <td><button class="icon-btn" onclick="delInsEgreso('${e.id}')">🗑</button></td>
+    </tr>`}).join('') || '<tr class="empty-row"><td colspan="6">Sin usos registrados</td></tr>'
+}
+
 function render(){
-  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios,renderLluvia,renderTropas]
+  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios,renderLluvia,renderTropas,renderInsumos]
   fns.forEach(fn=>{try{fn()}catch(e){console.error(fn.name+' failed:',e)}})
 }
 </script>
