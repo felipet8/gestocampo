@@ -405,6 +405,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <div class="nav-sect">Finanzas</div>
     <div class="nav-item" onclick="nav('ingresos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Ingresos</div>
     <div class="nav-item" onclick="nav('egresos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>Egresos</div>
+    <div class="nav-item" id="nav-pagos" onclick="nav('pagos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Pagos & Vencimientos <span id="nav-pagos-badge" style="display:none;background:var(--rust);color:#fff;border-radius:9px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:4px"></span></div>
     <div class="nav-sect">Análisis</div>
     <div class="nav-item" onclick="nav('reportes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Reportes</div>
     <div class="nav-item" onclick="nav('lluvia',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="19" x2="8" y2="21"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="16" y1="19" x2="16" y2="21"/><line x1="16" y1="13" x2="16" y2="15"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="12" y1="15" x2="12" y2="17"/><path d="M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25"/></svg>Lluvias</div>
@@ -461,6 +462,15 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <div class="tw">
       <div class="tw-head"><h3>📋 Actividad Reciente</h3></div>
       <div style="padding:14px" id="dash-activity"></div>
+    </div>
+  </div>
+  <div style="margin-top:18px">
+    <div class="tw">
+      <div class="tw-head" style="justify-content:space-between">
+        <h3>💳 Próximos Vencimientos</h3>
+        <button onclick="nav('pagos',document.getElementById('nav-pagos'))" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--hide);padding:2px 6px">Ver todos →</button>
+      </div>
+      <div id="dash-vencimientos" style="padding:0"></div>
     </div>
   </div>
 </div>
@@ -783,6 +793,103 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <input type="month" id="egr-mes" onchange="renderEgresos()">
   </div>
   <div class="tw"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th>Proveedor</th><th>Usuario</th><th style="text-align:right">Importe</th><th></th></tr></thead><tbody id="egr-tbody"></tbody></table></div>
+</div>
+
+<!-- PAGOS & VENCIMIENTOS -->
+<div class="page" id="p-pagos">
+  <div class="ph">
+    <div><div class="ph-title">Pagos & Vencimientos</div><div class="ph-sub">Obligaciones programadas y flujo de fondos proyectado</div></div>
+    <div class="ph-actions">
+      <button class="btn btn-p" onclick="openM('m-pago')">+ Nuevo Pago</button>
+    </div>
+  </div>
+  <div class="stats" id="pagos-stats"></div>
+
+  <!-- Alertas de vencimientos -->
+  <div id="pagos-alertas" style="margin-bottom:18px"></div>
+
+  <!-- Filtros + tabla -->
+  <div class="tw" style="margin-bottom:18px">
+    <div class="tw-head" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <h3>📋 Todos los Pagos</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="pagos-cat-f" onchange="renderPagos()" style="font-size:12px;padding:5px 8px;border:1px solid var(--wheat);border-radius:6px;background:var(--paper)">
+          <option value="">Todas las categorías</option>
+          <option value="impuesto">Impuestos</option>
+          <option value="servicio">Servicios</option>
+          <option value="credito">Crédito/Préstamo</option>
+          <option value="alquiler">Alquiler</option>
+          <option value="sueldo">Sueldos</option>
+          <option value="proveedor">Proveedores</option>
+          <option value="otro">Otro</option>
+        </select>
+        <select id="pagos-est-f" onchange="renderPagos()" style="font-size:12px;padding:5px 8px;border:1px solid var(--wheat);border-radius:6px;background:var(--paper)">
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendientes</option>
+          <option value="vencido">Vencidos</option>
+          <option value="pagado">Pagados</option>
+        </select>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Vencimiento</th><th>Concepto</th><th>Categoría</th><th>Frecuencia</th><th>Estado</th><th style="text-align:right">Importe</th><th></th></tr></thead>
+      <tbody id="pagos-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Flujo de fondos -->
+  <div class="tw">
+    <div class="tw-head"><h3>📊 Flujo de Fondos Proyectado</h3><span style="font-size:11px;color:var(--hide);font-weight:400">Próximos 6 meses · Ingresos reales + Egresos reales + Pagos programados</span></div>
+    <div style="overflow-x:auto">
+      <table id="flujo-table">
+        <thead><tr id="flujo-head"></tr></thead>
+        <tbody id="flujo-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO/EDITAR PAGO -->
+<div class="mb" id="m-pago">
+  <div class="modal" style="width:520px">
+    <div class="mh"><h3 id="m-pago-title">💳 Nuevo Pago / Vencimiento</h3><button class="x-btn" onclick="closeM('m-pago')">✕</button></div>
+    <div class="mb-body">
+      <input type="hidden" id="pago-id">
+      <div class="fg"><label>Concepto *</label><input id="pago-concepto" placeholder="ej. AFIP monotributo, Arrendamiento lote 5…"></div>
+      <div class="fr">
+        <div class="fg"><label>Categoría *</label>
+          <select id="pago-cat">
+            <option value="impuesto">🏛 Impuesto / Tasa</option>
+            <option value="servicio">🔧 Servicio</option>
+            <option value="credito">🏦 Crédito / Préstamo</option>
+            <option value="alquiler">🌾 Alquiler / Arrendamiento</option>
+            <option value="sueldo">👷 Sueldo / Honorario</option>
+            <option value="proveedor">🚚 Proveedor</option>
+            <option value="otro">📌 Otro</option>
+          </select>
+        </div>
+        <div class="fg"><label>Importe *</label><input id="pago-importe" type="number" min="0" step="0.01" placeholder="0"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label>Fecha de Vencimiento *</label><input id="pago-fecha" type="date"></div>
+        <div class="fg"><label>Frecuencia</label>
+          <select id="pago-frec">
+            <option value="unico">Único</option>
+            <option value="mensual">Mensual</option>
+            <option value="bimestral">Bimestral</option>
+            <option value="trimestral">Trimestral</option>
+            <option value="semestral">Semestral</option>
+            <option value="anual">Anual</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg"><label>Observaciones</label><input id="pago-obs" placeholder="Notas opcionales…"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeM('m-pago')">Cancelar</button>
+      <button class="btn btn-p" onclick="savePago()">Guardar</button>
+    </div>
+  </div>
 </div>
 
 <!-- REPORTES -->
@@ -1337,7 +1444,7 @@ const USE_JSONBIN = JSONBIN_ID !== 'TU_BIN_ID_AQUI'
 
 const DB_LOCAL_KEY = 'gc_lasmulas_2026'  // cache local para modo offline
 
-let DB = {animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[],insIngresos:[],insEgresos:[],silosConfig:[
+let DB = {animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[],insIngresos:[],insEgresos:[],pagos:[],silosConfig:[
   {id:'s1',nombre:'Silo 1',capacidad:12,cultivo:'Maíz'},
   {id:'s2',nombre:'Silo 2',capacidad:12,cultivo:'Maíz'},
   {id:'s3',nombre:'Silo 3',capacidad:12,cultivo:'Maíz'},
@@ -1347,7 +1454,7 @@ let syncStatus = 'local'  // 'local' | 'syncing' | 'ok' | 'error'
 let syncDebounce = null
 
 function dbEmpty(){
-  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[],insIngresos:[],insEgresos:[],silosConfig:[
+  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[],insIngresos:[],insEgresos:[],pagos:[],silosConfig:[
     {id:'s1',nombre:'Silo 1',capacidad:12,cultivo:'Maíz'},
     {id:'s2',nombre:'Silo 2',capacidad:12,cultivo:'Maíz'},
     {id:'s3',nombre:'Silo 3',capacidad:12,cultivo:'Maíz'},
@@ -1369,6 +1476,13 @@ async function dbLoad(){
     if(!r.ok)throw new Error('HTTP '+r.status)
     const remote=await r.json()
     if(!remote.lotes||remote.lotes.length===0)remote.lotes=LOTES_SHAPE.map(l=>({...l}))
+    // Silos siempre deben tener los 4 por defecto si el remoto no los tiene
+    if(!remote.silosConfig||remote.silosConfig.length===0)remote.silosConfig=[
+      {id:'s1',nombre:'Silo 1',capacidad:12,cultivo:'Maíz'},
+      {id:'s2',nombre:'Silo 2',capacidad:12,cultivo:'Maíz'},
+      {id:'s3',nombre:'Silo 3',capacidad:12,cultivo:'Maíz'},
+      {id:'s4',nombre:'Silo 4',capacidad:12,cultivo:'Maíz'},
+    ]
 
     // SAFE MERGE: compare local vs remote by record count + actlog length
     // If local has MORE data than remote, local wins (push happened but remote is stale)
@@ -1421,6 +1535,7 @@ function mergeLocalRemote(local,remote){
     tropas:      unionById(local.tropas||[], remote.tropas||[]),
     insIngresos: unionById(local.insIngresos||[],remote.insIngresos||[]),
     insEgresos:  unionById(local.insEgresos||[], remote.insEgresos||[]),
+    pagos:       unionById(local.pagos||[],      remote.pagos||[]),
     silosConfig: (local.silosConfig&&local.silosConfig.length)?local.silosConfig:remote.silosConfig||[],
     insConfig:   Object.assign({},remote.insConfig||{},local.insConfig||{}),
   }
@@ -1582,6 +1697,12 @@ async function initApp(){
   render()
   startAutoRefresh()
   setSyncStatus(USE_JSONBIN?'ok':'local')
+  // Alertas de vencimientos al iniciar
+  setTimeout(()=>{
+    const {vencidos,proximos}=checkVencimientos()||{}
+    if(vencidos&&vencidos.length) toast(`${vencidos.length} pago${vencidos.length>1?'s':''} vencido${vencidos.length>1?'s':''}. Revisá Pagos & Vencimientos.`,'🔴')
+    else if(proximos&&proximos.length) toast(`${proximos.length} pago${proximos.length>1?'s':''} vence${proximos.length>1?'n':''} esta semana.`,'🟡')
+  },1200)
 }
 buildLoginScreen()
 
@@ -1613,6 +1734,16 @@ function openM(id){
     const siloSel=document.getElementById('iin-silo-id')
     if(siloSel)siloSel.innerHTML=(DB.silosConfig||[]).map(s=>`<option value="${s.id}">${s.nombre} (${getSiloStock(s.id)}/${s.capacidad}tn)</option>`).join('')
   }
+  if(id==='m-pago'){
+    // Reset si se abre para nuevo pago (no desde editPago)
+    if(!document.getElementById('pago-id').value){
+      document.getElementById('m-pago-title').textContent='💳 Nuevo Pago / Vencimiento'
+      clr('pago-concepto','pago-importe','pago-obs')
+      document.getElementById('pago-cat').value='impuesto'
+      document.getElementById('pago-frec').value='unico'
+      const fp=document.getElementById('pago-fecha');if(fp)fp.value=''
+    }
+  }
   if(id==='m-ins-egreso'){
     updateInsEgresoFields()
     // populate destino (tropas)
@@ -1633,7 +1764,10 @@ function openM(id){
   if(id==='m-lluvia'){populateLluviaLote()}
   if(id==='m-tropa'){populateTropaLote()}
 }
-function closeM(id){document.getElementById(id).classList.remove('open')}
+function closeM(id){
+  document.getElementById(id).classList.remove('open')
+  if(id==='m-pago') document.getElementById('pago-id').value=''
+}
 document.querySelectorAll('.mb').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)b.classList.remove('open')}))
 function togCap(){document.getElementById('fg-cap').style.display=document.getElementById('a-origen').value==='capitalizacion'?'block':'none'}
 
@@ -2301,6 +2435,35 @@ function renderDashboard(){
   }
 
   renderActivityWidget()
+  renderDashVencimientos()
+}
+function renderDashVencimientos(){
+  const el=document.getElementById('dash-vencimientos');if(!el)return
+  if(!DB.pagos||!DB.pagos.length){el.innerHTML='<div style="padding:14px;color:var(--hide);font-size:12px">Sin pagos cargados — <span style="color:var(--straw);cursor:pointer" onclick="nav(\'pagos\',document.getElementById(\'nav-pagos\'))">Ir a Pagos & Vencimientos →</span></div>';return}
+  const hoy=today()
+  const en30=new Date();en30.setDate(en30.getDate()+30);const en30str=en30.toISOString().split('T')[0]
+  const proximos=[...DB.pagos]
+    .filter(p=>p.estado!=='pagado')
+    .sort((a,b)=>a.fechaVenc.localeCompare(b.fechaVenc))
+    .slice(0,6)
+  if(!proximos.length){el.innerHTML='<div style="padding:14px;color:var(--green);font-size:12px">✅ Sin vencimientos pendientes próximos</div>';return}
+  el.innerHTML=proximos.map(p=>{
+    const venc=pagoEstadoReal(p)
+    const diasNum=Math.ceil((new Date(p.fechaVenc)-new Date(hoy))/(1000*60*60*24))
+    const diasLabel=venc==='vencido'?`Hace ${Math.abs(diasNum)} día${Math.abs(diasNum)!==1?'s':''}`:`En ${diasNum} día${diasNum!==1?'s':''}`
+    const color=venc==='vencido'?'var(--rust)':diasNum<=7?'var(--gold)':'var(--hide)'
+    return`<div style="display:flex;align-items:center;gap:10px;padding:9px 16px;border-top:1px solid rgba(200,168,106,.1)">
+      <div style="flex:1">
+        <div style="font-size:12.5px;font-weight:600">${p.concepto}</div>
+        <div style="font-size:11px;color:var(--hide)">${PAGO_CAT_LABEL[p.cat]||p.cat} · ${$fd(p.fechaVenc)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;color:${color}">${$m(p.importe)}</div>
+        <div style="font-size:10px;color:${color};font-weight:600">${diasLabel}</div>
+      </div>
+      <button onclick="markPagado('${p.id}')" style="background:${venc==='vencido'?'var(--rust)':'var(--green)'};color:#fff;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:11px;font-weight:600">✓</button>
+    </div>`
+  }).join('')
 }
 function renderActivityWidget(){
   const el=document.getElementById('dash-activity');if(!el)return
@@ -3169,6 +3332,17 @@ function updateInsIngresoFields(){
   document.getElementById('iin-rollo-fg').style.display=cat==='rollo'?'block':'none'
   document.getElementById('iin-silo-fg').style.display=cat==='silo'?'block':'none'
   document.getElementById('iin-nombre-fg').style.display=['semilla','agroquimico','fertilizante'].includes(cat)?'block':'none'
+  // Refrescar el selector de silos cada vez que la categoría cambia a silo
+  if(cat==='silo'){
+    const siloSel=document.getElementById('iin-silo-id')
+    const silos=(DB.silosConfig||[]).length?DB.silosConfig:[
+      {id:'s1',nombre:'Silo 1',capacidad:12,cultivo:'Maíz'},
+      {id:'s2',nombre:'Silo 2',capacidad:12,cultivo:'Maíz'},
+      {id:'s3',nombre:'Silo 3',capacidad:12,cultivo:'Maíz'},
+      {id:'s4',nombre:'Silo 4',capacidad:12,cultivo:'Maíz'},
+    ]
+    if(siloSel)siloSel.innerHTML=silos.map(s=>`<option value="${s.id}">${s.nombre} (stock: ${getSiloStock(s.id)} / ${s.capacidad} tn)</option>`).join('')
+  }
   const unidad=document.getElementById('iin-unidad')
   const opts={rollo:'<option value="rollos">rollos</option>',
     silo:'<option value="tn">tn</option><option value="kg">kg</option>',
@@ -3428,8 +3602,265 @@ function renderInsumos(){
     </tr>`}).join('') || '<tr class="empty-row"><td colspan="6">Sin usos registrados</td></tr>'
 }
 
+// ══════════════════════════════════════════════════
+// PAGOS & VENCIMIENTOS
+// ══════════════════════════════════════════════════
+const PAGO_CAT_LABEL={impuesto:'Impuesto/Tasa',servicio:'Servicio',credito:'Crédito',alquiler:'Alquiler',sueldo:'Sueldo',proveedor:'Proveedor',otro:'Otro'}
+const PAGO_CAT_BADGE={impuesto:'b-red',servicio:'b-sky',credito:'b-bark',alquiler:'b-gold',sueldo:'b-green',proveedor:'b-bark',otro:'b-bark'}
+const PAGO_FREC_LABEL={unico:'Único',mensual:'Mensual',bimestral:'Bimestral',trimestral:'Trimestral',semestral:'Semestral',anual:'Anual'}
+const PAGO_FREC_MESES={unico:0,mensual:1,bimestral:2,trimestral:3,semestral:6,anual:12}
+
+function pagoEstadoReal(p){
+  if(p.estado==='pagado') return 'pagado'
+  return p.fechaVenc < today() ? 'vencido' : 'pendiente'
+}
+
+function savePago(){
+  if(!DB.pagos) DB.pagos=[]
+  const concepto=document.getElementById('pago-concepto').value.trim()
+  const importe=parseFloat(document.getElementById('pago-importe').value)||0
+  const fechaVenc=document.getElementById('pago-fecha').value
+  if(!concepto||!fechaVenc||importe<=0){alert('Completá concepto, fecha e importe.');return}
+  const id=document.getElementById('pago-id').value
+  const rec={
+    id:id||uid(), concepto,
+    cat:document.getElementById('pago-cat').value,
+    importe, fechaVenc,
+    frec:document.getElementById('pago-frec').value,
+    obs:document.getElementById('pago-obs').value.trim(),
+    estado:'pendiente',
+    fechaPago:null,
+    uid:currentUser.id, uname:currentUser.name,
+    creadoEn:new Date().toISOString()
+  }
+  if(id){
+    const idx=DB.pagos.findIndex(p=>p.id===id)
+    if(idx>=0){rec.estado=DB.pagos[idx].estado;rec.fechaPago=DB.pagos[idx].fechaPago}
+    DB.pagos[idx>=0?idx:DB.pagos.length]=rec
+  } else {
+    DB.pagos.push(rec)
+  }
+  dbSave(DB)
+  logActivity(id?'Editó pago':'Nuevo pago',`${concepto} ${$m(importe)}`)
+  closeM('m-pago')
+  clr('pago-concepto','pago-importe','pago-fecha','pago-obs')
+  document.getElementById('pago-id').value=''
+  render(); checkVencimientos()
+  toast(`Pago "${concepto}" guardado`,'💳')
+}
+
+function editPago(id){
+  const p=DB.pagos.find(x=>x.id===id); if(!p) return
+  document.getElementById('m-pago-title').textContent='✏️ Editar Pago'
+  document.getElementById('pago-id').value=p.id
+  document.getElementById('pago-concepto').value=p.concepto
+  document.getElementById('pago-cat').value=p.cat
+  document.getElementById('pago-importe').value=p.importe
+  document.getElementById('pago-fecha').value=p.fechaVenc
+  document.getElementById('pago-frec').value=p.frec||'unico'
+  document.getElementById('pago-obs').value=p.obs||''
+  openM('m-pago')
+}
+
+function markPagado(id){
+  const p=DB.pagos.find(x=>x.id===id); if(!p) return
+  if(p.estado==='pagado'){
+    if(!confirm('¿Marcar como pendiente nuevamente?')) return
+    p.estado='pendiente'; p.fechaPago=null
+    toast('Marcado como pendiente','🔄')
+  } else {
+    p.estado='pagado'; p.fechaPago=today()
+    logActivity('Pago registrado',`${p.concepto} ${$m(p.importe)}`)
+    toast(`"${p.concepto}" marcado como pagado ✓`,'✅')
+    // Si es recurrente, crear la próxima cuota automáticamente
+    const meses=PAGO_FREC_MESES[p.frec||'unico']
+    if(meses>0){
+      const d=new Date(p.fechaVenc+'T12:00:00')
+      d.setMonth(d.getMonth()+meses)
+      const proxFecha=d.toISOString().split('T')[0]
+      DB.pagos.push({...p, id:uid(), estado:'pendiente', fechaPago:null, fechaVenc:proxFecha, creadoEn:new Date().toISOString()})
+      toast(`Próxima cuota creada: ${$fd(proxFecha)}`,'🔁')
+    }
+  }
+  dbSave(DB); render(); checkVencimientos()
+}
+
+function delPago(id){
+  if(!isAdmin()){toast('Solo el administrador puede eliminar','🔒');return}
+  const p=DB.pagos.find(x=>x.id===id)
+  if(!confirm(`¿Eliminar "${p?.concepto}"?`)) return
+  DB.pagos=DB.pagos.filter(x=>x.id!==id)
+  dbSave(DB); logActivity('Eliminó pago',p?.concepto||''); render()
+}
+
+function checkVencimientos(){
+  if(!DB.pagos||!DB.pagos.length) return
+  const hoy=today()
+  const en7=new Date(); en7.setDate(en7.getDate()+7)
+  const en7str=en7.toISOString().split('T')[0]
+  const pendientes=DB.pagos.filter(p=>p.estado!=='pagado')
+  const vencidos=pendientes.filter(p=>p.fechaVenc<hoy)
+  const proximos=pendientes.filter(p=>p.fechaVenc>=hoy&&p.fechaVenc<=en7str)
+  // Badge en el nav
+  const badge=document.getElementById('nav-pagos-badge')
+  const total=vencidos.length+proximos.length
+  if(badge){badge.textContent=total>0?total:'';badge.style.display=total>0?'inline':'none'}
+  // Toasts de alerta (solo al cargar, no en cada render)
+  return {vencidos, proximos}
+}
+
+function renderPagos(){
+  if(!DB.pagos) DB.pagos=[]
+  const hoy=today()
+  const en3=new Date(); en3.setDate(en3.getDate()+3); const en3str=en3.toISOString().split('T')[0]
+  const en7=new Date(); en7.setDate(en7.getDate()+7); const en7str=en7.toISOString().split('T')[0]
+  const en30=new Date(); en30.setDate(en30.getDate()+30); const en30str=en30.toISOString().split('T')[0]
+  const mesActual=curMonth()
+
+  // ── Stats ──
+  const pendientes=DB.pagos.filter(p=>p.estado!=='pagado')
+  const vencidos=pendientes.filter(p=>p.fechaVenc<hoy)
+  const esta7=pendientes.filter(p=>p.fechaVenc>=hoy&&p.fechaVenc<=en7str)
+  const este30=pendientes.filter(p=>p.fechaVenc>=hoy&&p.fechaVenc<=en30str)
+  const pagadosMes=DB.pagos.filter(p=>p.estado==='pagado'&&(p.fechaPago||'').startsWith(mesActual))
+  const totalPend=sum(pendientes,p=>p.importe)
+  const totalVenc=sum(vencidos,p=>p.importe)
+  const totalPag=sum(pagadosMes,p=>p.importe)
+  const el=document.getElementById('pagos-stats'); if(!el) return
+  el.innerHTML=`
+    <div class="sc"><span class="sc-icon">⚠️</span><div class="sc-label">Vencidos</div><div class="sc-value r">${vencidos.length}</div><div class="sc-sub">${$m(totalVenc)}</div></div>
+    <div class="sc"><span class="sc-icon">🔔</span><div class="sc-label">Próx. 7 días</div><div class="sc-value" style="color:var(--gold)">${esta7.length}</div><div class="sc-sub">${$m(sum(esta7,p=>p.importe))}</div></div>
+    <div class="sc"><span class="sc-icon">📅</span><div class="sc-label">Próx. 30 días</div><div class="sc-value">${este30.length}</div><div class="sc-sub">${$m(sum(este30,p=>p.importe))}</div></div>
+    <div class="sc"><span class="sc-icon">✅</span><div class="sc-label">Pagados (mes)</div><div class="sc-value g">${pagadosMes.length}</div><div class="sc-sub">${$m(totalPag)}</div></div>
+    <div class="sc"><span class="sc-icon">💳</span><div class="sc-label">Total Pendiente</div><div class="sc-value r">${$m(totalPend)}</div><div class="sc-sub">${pendientes.length} obligaciones</div></div>`
+
+  // ── Alertas ──
+  const alertEl=document.getElementById('pagos-alertas'); if(!alertEl) return
+  const alertItems=[
+    ...vencidos.map(p=>({p,tipo:'vencido',color:'var(--rust)',bg:'rgba(184,60,42,.08)',icon:'🔴',label:`VENCIDO el ${$fd(p.fechaVenc)}`})),
+    ...pendientes.filter(p=>p.fechaVenc>=hoy&&p.fechaVenc<=en3str).map(p=>({p,tipo:'urgente',color:'var(--rust)',bg:'rgba(184,60,42,.06)',icon:'🟠',label:`Vence en ${Math.ceil((new Date(p.fechaVenc)-new Date(hoy))/(1000*60*60*24))} días (${$fd(p.fechaVenc)})`})),
+    ...pendientes.filter(p=>p.fechaVenc>en3str&&p.fechaVenc<=en7str).map(p=>({p,tipo:'proximo',color:'var(--gold)',bg:'rgba(201,148,10,.06)',icon:'🟡',label:`Vence en ${Math.ceil((new Date(p.fechaVenc)-new Date(hoy))/(1000*60*60*24))} días (${$fd(p.fechaVenc)})`})),
+  ]
+  alertEl.innerHTML=alertItems.length?`
+    <div style="border-radius:10px;overflow:hidden;border:1px solid rgba(184,60,42,.2)">
+      <div style="background:rgba(184,60,42,.07);padding:10px 16px;font-size:11px;font-weight:700;color:var(--rust);text-transform:uppercase;letter-spacing:.08em">⚡ Alertas de Vencimiento</div>
+      ${alertItems.map(({p,color,bg,icon,label})=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:${bg};border-top:1px solid rgba(184,60,42,.08)">
+          <span style="font-size:16px">${icon}</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:${color}">${p.concepto}</div>
+            <div style="font-size:11px;color:var(--hide)">${label} · ${PAGO_CAT_LABEL[p.cat]||p.cat}</div>
+          </div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:${color}">${$m(p.importe)}</div>
+          <button onclick="markPagado('${p.id}')" style="background:var(--green);color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap">✓ Pagar</button>
+        </div>`).join('')}
+    </div>` : ''
+
+  // ── Tabla ──
+  const catF=(document.getElementById('pagos-cat-f')||{value:''}).value
+  const estF=(document.getElementById('pagos-est-f')||{value:''}).value
+  let data=[...DB.pagos].sort((a,b)=>a.fechaVenc.localeCompare(b.fechaVenc))
+  if(catF) data=data.filter(p=>p.cat===catF)
+  if(estF) data=data.filter(p=>pagoEstadoReal(p)===estF)
+  const tb=document.getElementById('pagos-tbody'); if(!tb) return
+  tb.innerHTML=data.length?data.map(p=>{
+    const est=pagoEstadoReal(p)
+    const estBadge=est==='vencido'?'b-red':est==='pagado'?'b-green':'b-gold'
+    const estLabel=est==='vencido'?'Vencido':est==='pagado'?'Pagado':'Pendiente'
+    const rowStyle=est==='vencido'?'background:rgba(184,60,42,.04)':est==='pagado'?'background:rgba(61,107,74,.04)':''
+    return`<tr style="${rowStyle}">
+      <td style="font-weight:600;color:${est==='vencido'?'var(--rust)':est==='pagado'?'var(--hide)':'var(--ink)'}">${$fd(p.fechaVenc)}</td>
+      <td><div style="font-weight:600;font-size:13px">${p.concepto}</div>${p.obs?`<div style="font-size:11px;color:var(--hide)">${p.obs}</div>`:''}</td>
+      <td><span class="badge ${PAGO_CAT_BADGE[p.cat]||'b-bark'}">${PAGO_CAT_LABEL[p.cat]||p.cat}</span></td>
+      <td style="font-size:12px;color:var(--hide)">${PAGO_FREC_LABEL[p.frec||'unico']}</td>
+      <td><span class="badge ${estBadge}">${estLabel}</span>${p.fechaPago?`<div style="font-size:10px;color:var(--hide)">Pagado ${$fd(p.fechaPago)}</div>`:''}</td>
+      <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:${est==='pagado'?'var(--hide)':'var(--rust)'}">${$m(p.importe)}</td>
+      <td style="white-space:nowrap">
+        <button class="icon-btn" title="${est==='pagado'?'Revertir':'Marcar pagado'}" onclick="markPagado('${p.id}')">${est==='pagado'?'↩️':'✅'}</button>
+        <button class="icon-btn" title="Editar" onclick="editPago('${p.id}')">✏️</button>
+        <button class="icon-btn" title="Eliminar" onclick="delPago('${p.id}')">🗑</button>
+      </td>
+    </tr>`}).join('')
+  :'<tr class="empty-row"><td colspan="7">Sin pagos registrados — usá "+ Nuevo Pago" para agregar</td></tr>'
+
+  // ── Flujo de fondos ──
+  renderFlujoCaja()
+}
+
+function renderFlujoCaja(){
+  const headEl=document.getElementById('flujo-head')
+  const bodyEl=document.getElementById('flujo-body')
+  if(!headEl||!bodyEl) return
+
+  // Generar los próximos 6 meses desde el mes actual
+  const meses=[]
+  const base=new Date()
+  base.setDate(1)
+  for(let i=0;i<7;i++){
+    const d=new Date(base)
+    d.setMonth(d.getMonth()+i-1) // incluir mes anterior para contexto
+    meses.push(d.toISOString().slice(0,7))
+  }
+
+  // Calcular ingresos y egresos reales por mes
+  const ingPorMes={}, egrPorMes={}
+  DB.ingresos.forEach(i=>{const m=i.fecha.slice(0,7);ingPorMes[m]=(ingPorMes[m]||0)+i.importe})
+  DB.egresos.forEach(e=>{const m=e.fecha.slice(0,7);egrPorMes[m]=(egrPorMes[m]||0)+e.importe})
+
+  // Calcular pagos programados por mes (pendientes + proyectar recurrentes)
+  const pagosPorMes={}
+  meses.forEach(m=>{pagosPorMes[m]=0})
+  ;(DB.pagos||[]).filter(p=>p.estado!=='pagado').forEach(p=>{
+    const m=p.fechaVenc.slice(0,7)
+    if(pagosPorMes[m]!==undefined) pagosPorMes[m]+=p.importe
+  })
+
+  // Encabezados
+  const MESES_SHORT=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+  headEl.innerHTML='<th style="text-align:left;font-size:12px;color:var(--hide);padding:10px 14px">Concepto</th>'+
+    meses.map(m=>{
+      const d=new Date(m+'-15')
+      const label=MESES_SHORT[d.getMonth()]+' '+d.getFullYear()
+      const isNow=m===curMonth()
+      return`<th style="text-align:right;font-size:12px;padding:10px 14px;${isNow?'background:rgba(200,168,106,.12);color:var(--straw);font-weight:700':'color:var(--hide)'}">${label}${isNow?' ★':''}</th>`
+    }).join('')
+
+  // Calcular saldo acumulado hasta el mes anterior al primero del rango
+  let saldoAcum=sum(DB.ingresos,i=>i.importe)-sum(DB.egresos,e=>e.importe)-
+    sum((DB.pagos||[]).filter(p=>p.estado==='pagado'),p=>p.importe)
+
+  const rows=[
+    {label:'📈 Ingresos reales', data:meses.map(m=>ingPorMes[m]||0), color:'var(--green)', bold:false},
+    {label:'📉 Egresos reales',  data:meses.map(m=>egrPorMes[m]||0), color:'var(--rust)',  bold:false, neg:true},
+    {label:'💳 Pagos programados', data:meses.map(m=>pagosPorMes[m]||0), color:'var(--gold)', bold:false, neg:true},
+  ]
+
+  // Saldo mensual
+  const saldoMes=meses.map((_,i)=>rows[0].data[i]-rows[1].data[i]-rows[2].data[i])
+  rows.push({label:'⚖️ Saldo del mes', data:saldoMes, color:'var(--sky)', bold:true, saldo:true})
+
+  // Saldo acumulado proyectado
+  let acum=saldoAcum
+  const saldoAcumArr=saldoMes.map(s=>{acum+=s;return acum})
+  rows.push({label:'🏦 Saldo acumulado', data:saldoAcumArr, color:'var(--ink)', bold:true, saldo:true})
+
+  bodyEl.innerHTML=rows.map((r,ri)=>{
+    const sep=ri===2?'border-bottom:2px solid var(--wheat);':''
+    return`<tr style="${sep}${r.bold?'background:rgba(200,168,106,.07)':''}">
+      <td style="font-size:12px;font-weight:${r.bold?'700':'500'};color:${r.bold?'var(--ink)':'var(--hide)'};padding:9px 14px;white-space:nowrap">${r.label}</td>
+      ${r.data.map((v,i)=>{
+        const isNow=meses[i]===curMonth()
+        const color=r.saldo?(v>=0?'var(--green)':'var(--rust)'):r.color
+        const prefix=r.neg&&v>0?'-':r.saldo&&v>0?'+':''
+        return`<td style="text-align:right;padding:9px 14px;font-family:'Cormorant Garamond',serif;font-size:${r.bold?'16':'15'}px;font-weight:${r.bold?'700':'500'};color:${color};${isNow?'background:rgba(200,168,106,.07)':''}">
+          ${v===0&&!r.saldo?'<span style="color:var(--wheat)">—</span>':prefix+$m(Math.abs(v))}
+        </td>`}).join('')}
+    </tr>`
+  }).join('')
+}
+
 function render(){
-  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios,renderLluvia,renderTropas,renderInsumos]
+  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderPagos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios,renderLluvia,renderTropas,renderInsumos]
   fns.forEach(fn=>{try{fn()}catch(e){console.error(fn.name+' failed:',e)}})
 }
 </script>
