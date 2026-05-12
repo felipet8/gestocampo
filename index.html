@@ -579,7 +579,10 @@ tr:hover td{background:rgba(242,232,208,.4)}
 <div class="page" id="p-stock">
   <div class="ph">
     <div><div class="ph-title">Stock Bovino</div><div class="ph-sub">Hacienda propia y capitalización</div></div>
-    <div class="ph-actions"><button class="btn btn-p" onclick="openM('m-animal')">+ Agregar Animal</button></div>
+    <div class="ph-actions">
+      <button class="btn btn-g" onclick="openVentaHacienda()">🐄 Registrar Venta</button>
+      <button class="btn btn-p" onclick="openM('m-animal')">+ Agregar Animal</button>
+    </div>
   </div>
   <div class="stats" id="stock-stats"></div>
 
@@ -1186,6 +1189,84 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <div class="mf">
       <button class="btn btn-g" onclick="closeM('m-ins-ingreso')">Cancelar</button>
       <button class="btn btn-p" onclick="saveInsIngreso()">Registrar Ingreso</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VENTA DE HACIENDA -->
+<div class="mb" id="m-venta-hacienda">
+  <div class="modal" style="width:600px">
+    <div class="mh"><h3>🐄 Registrar Venta de Hacienda</h3><button class="x-btn" onclick="closeM('m-venta-hacienda')">✕</button></div>
+    <div class="mb-body">
+
+      <div class="fr">
+        <div class="fg"><label>Fecha de venta *</label><input id="vh-fecha" type="date" oninput="updateVentaResumen()"></div>
+        <div class="fg"><label>Comprador / Destino</label><input id="vh-comprador" placeholder="Nombre del comprador…"></div>
+      </div>
+
+      <div class="fr">
+        <div class="fg">
+          <label>Tropa *</label>
+          <select id="vh-tropa" onchange="updateVentaAnimales()">
+            <option value="">— Seleccioná una tropa —</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Filtrar por categoría</label>
+          <select id="vh-cat" onchange="updateVentaAnimales()">
+            <option value="">Todas</option>
+            <option>Ternero/a</option><option>Novillo</option><option>Novillito</option>
+            <option>Vaca</option><option>Vaquillona</option><option>Toro</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Info de animales disponibles -->
+      <div id="vh-disponibles" style="display:none;background:var(--parch);border:1px solid var(--wheat);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px"></div>
+
+      <div class="fr">
+        <div class="fg">
+          <label>Cantidad a vender *</label>
+          <input id="vh-cantidad" type="number" min="1" placeholder="0" oninput="updateVentaResumen()">
+          <div id="vh-cantidad-err" style="font-size:11px;color:var(--rust);margin-top:3px;display:none"></div>
+        </div>
+        <div class="fg">
+          <label>Kg promedio de salida</label>
+          <input id="vh-kg" type="number" min="0" step="0.1" placeholder="ej. 380" oninput="updateVentaResumen()">
+        </div>
+      </div>
+
+      <div class="fr" style="align-items:flex-end">
+        <div class="fg">
+          <label id="vh-precio-label">Precio *</label>
+          <input id="vh-precio" type="number" min="0" step="0.01" placeholder="0" oninput="updateVentaResumen()">
+        </div>
+        <div class="fg" style="max-width:160px">
+          <label>Modalidad de precio</label>
+          <select id="vh-precio-modo" onchange="updateVentaPrecioLabel();updateVentaResumen()">
+            <option value="kilo">$ por kg</option>
+            <option value="cabeza">$ por cabeza</option>
+            <option value="total">Total fijo $</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Resumen calculado -->
+      <div id="vh-resumen" style="display:none;border-radius:10px;overflow:hidden;margin-bottom:4px">
+        <div style="background:rgba(61,107,74,.1);border:1px solid rgba(61,107,74,.25);border-radius:10px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Resumen de la venta</div>
+          <div id="vh-resumen-detalle"></div>
+        </div>
+      </div>
+
+      <!-- Advertencia capitalista -->
+      <div id="vh-cap-warning" style="display:none;background:rgba(201,148,10,.08);border:1px solid rgba(201,148,10,.3);border-radius:8px;padding:10px 14px;margin-top:8px;font-size:12px;color:var(--ink)"></div>
+
+      <div class="fg" style="margin-top:8px"><label>Observaciones</label><input id="vh-obs" placeholder="Notas opcionales…"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeM('m-venta-hacienda')">Cancelar</button>
+      <button class="btn btn-p" id="vh-btn-guardar" onclick="saveVentaHacienda()">Confirmar Venta</button>
     </div>
   </div>
 </div>
@@ -1894,6 +1975,211 @@ function delAnimal(id){
   if(!isAdmin()){toast('Solo el administrador puede eliminar','🔒');return}
   if(confirm('¿Eliminar?')){const a=DB.animales.find(x=>x.id===id);DB.animales=DB.animales.filter(a=>a.id!==id);dbSave(DB);logActivity('Baja animal',`Carimbo ${a?.carimbo}`);render()}
 }
+// ══════════════════════════════════════════════════
+// VENTA DE HACIENDA
+// ══════════════════════════════════════════════════
+function openVentaHacienda(){
+  // Poblar selector de tropas con conteo de activos
+  const sel=document.getElementById('vh-tropa')
+  sel.innerHTML='<option value="">— Seleccioná una tropa —</option>'
+  ;(DB.tropas||[]).forEach(t=>{
+    const n=DB.animales.filter(a=>a.tropaId===t.id&&a.estado==='activo').length
+    if(n>0) sel.innerHTML+=`<option value="${t.id}">${t.nombre} (${n} activos)</option>`
+  })
+  // Sin tropa asignada
+  const sinTropa=DB.animales.filter(a=>!a.tropaId&&a.estado==='activo').length
+  if(sinTropa>0) sel.innerHTML+=`<option value="__sin_tropa__">Sin tropa asignada (${sinTropa})</option>`
+
+  // Reset campos
+  document.getElementById('vh-cat').value=''
+  document.getElementById('vh-cantidad').value=''
+  document.getElementById('vh-kg').value=''
+  document.getElementById('vh-precio').value=''
+  document.getElementById('vh-precio-modo').value='kilo'
+  document.getElementById('vh-comprador').value=''
+  document.getElementById('vh-obs').value=''
+  document.getElementById('vh-disponibles').style.display='none'
+  document.getElementById('vh-resumen').style.display='none'
+  document.getElementById('vh-cap-warning').style.display='none'
+  document.getElementById('vh-cantidad-err').style.display='none'
+  updateVentaPrecioLabel()
+  const f=document.getElementById('vh-fecha');if(f)f.value=today()
+  openM('m-venta-hacienda')
+}
+
+function getVentaAnimalesDisponibles(){
+  const tropaId=document.getElementById('vh-tropa').value
+  const cat=document.getElementById('vh-cat').value
+  if(!tropaId) return []
+  let base=DB.animales.filter(a=>a.estado==='activo')
+  if(tropaId==='__sin_tropa__') base=base.filter(a=>!a.tropaId)
+  else base=base.filter(a=>a.tropaId===tropaId)
+  if(cat) base=base.filter(a=>a.categoria===cat)
+  return base.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''))
+}
+
+function updateVentaAnimales(){
+  const animales=getVentaAnimalesDisponibles()
+  const dispEl=document.getElementById('vh-disponibles')
+  if(!animales.length){
+    dispEl.style.display='block'
+    dispEl.innerHTML='<span style="color:var(--rust)">⚠️ No hay animales activos con esos filtros</span>'
+    document.getElementById('vh-resumen').style.display='none'
+    document.getElementById('vh-cap-warning').style.display='none'
+    return
+  }
+  const propios=animales.filter(a=>a.origen==='propio').length
+  const caps=animales.filter(a=>a.origen==='capitalizacion')
+  const capGroups={}
+  caps.forEach(a=>{const k=a.capitalista||'Sin nombre';capGroups[k]=(capGroups[k]||0)+1})
+  const capStr=Object.entries(capGroups).map(([k,v])=>`${v} de <strong>${k}</strong>`).join(', ')
+  dispEl.style.display='block'
+  dispEl.innerHTML=`
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+      <span>📦 <strong>${animales.length}</strong> animales disponibles</span>
+      <span style="color:var(--green)">🏠 <strong>${propios}</strong> propios</span>
+      ${caps.length?`<span style="color:var(--gold)">🤝 <strong>${caps.length}</strong> capitalización: ${capStr}</span>`:''}
+    </div>`
+  // Actualizar max del campo cantidad
+  const cantEl=document.getElementById('vh-cantidad')
+  cantEl.max=animales.length
+  updateVentaResumen()
+}
+
+function updateVentaPrecioLabel(){
+  const modo=document.getElementById('vh-precio-modo').value
+  const label={kilo:'Precio $/kg *',cabeza:'Precio $/cabeza *',total:'Precio total $ *'}
+  document.getElementById('vh-precio-label').textContent=label[modo]||'Precio *'
+}
+
+function updateVentaResumen(){
+  const animales=getVentaAnimalesDisponibles()
+  const cantidad=parseInt(document.getElementById('vh-cantidad').value)||0
+  const kg=parseFloat(document.getElementById('vh-kg').value)||0
+  const precio=parseFloat(document.getElementById('vh-precio').value)||0
+  const modo=document.getElementById('vh-precio-modo').value
+  const errEl=document.getElementById('vh-cantidad-err')
+
+  // Validar cantidad
+  if(cantidad>animales.length&&animales.length>0){
+    errEl.textContent=`Máximo disponible: ${animales.length}`
+    errEl.style.display='block'
+  } else {
+    errEl.style.display='none'
+  }
+
+  const resEl=document.getElementById('vh-resumen')
+  const warnEl=document.getElementById('vh-cap-warning')
+  if(!cantidad||!precio||!animales.length){resEl.style.display='none';warnEl.style.display='none';return}
+
+  // Calcular totales
+  const selAnimales=animales.slice(0,cantidad)
+  const propios=selAnimales.filter(a=>a.origen==='propio')
+  const caps=selAnimales.filter(a=>a.origen==='capitalizacion')
+  const kgTotal=kg>0?cantidad*kg:0
+
+  let totalVenta=0, precioPorKg=0
+  if(modo==='kilo'&&kg>0){totalVenta=cantidad*kg*precio;precioPorKg=precio}
+  else if(modo==='cabeza'){totalVenta=cantidad*precio;precioPorKg=kg>0?precio/kg:0}
+  else if(modo==='total'){totalVenta=precio;precioPorKg=kgTotal>0?precio/kgTotal:0}
+
+  const totalPropios=propios.length>0?totalVenta*(propios.length/cantidad):0
+  const totalCaps=caps.length>0?totalVenta*(caps.length/cantidad):0
+
+  // Resumen
+  resEl.style.display='block'
+  let det=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`
+  det+=`<div style="font-size:12px;color:var(--hide)">Animales</div><div style="font-size:13px;font-weight:700">${cantidad} cabezas</div>`
+  if(kg>0){det+=`<div style="font-size:12px;color:var(--hide)">Peso total estimado</div><div style="font-size:13px;font-weight:700">${kgTotal.toLocaleString('es-AR')} kg</div>`}
+  if(precioPorKg>0&&modo!=='kilo'){det+=`<div style="font-size:12px;color:var(--hide)">Precio equiv. $/kg</div><div style="font-size:13px;font-weight:700">${$m(precioPorKg)}</div>`}
+  det+=`<div style="font-size:13px;color:var(--hide);border-top:1px solid rgba(61,107,74,.2);padding-top:6px;margin-top:4px">Total venta</div><div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--green);border-top:1px solid rgba(61,107,74,.2);padding-top:6px;margin-top:4px">${$m(totalVenta)}</div>`
+  if(propios.length>0){det+=`<div style="font-size:12px;color:var(--green)">→ Ingreso a registrar (${propios.length} prop.)</div><div style="font-size:13px;font-weight:700;color:var(--green)">${$m(totalPropios)}</div>`}
+  if(caps.length>0){det+=`<div style="font-size:12px;color:var(--gold)">→ Capitalistas (${caps.length} cab.) — sin ingreso</div><div style="font-size:13px;font-weight:700;color:var(--gold)">${$m(totalCaps)}</div>`}
+  det+=`</div>`
+  document.getElementById('vh-resumen-detalle').innerHTML=det
+
+  // Advertencia capitalistas
+  if(caps.length>0){
+    const capGroups={}
+    caps.forEach(a=>{const k=a.capitalista||'Sin nombre';capGroups[k]=(capGroups[k]||0)+1})
+    warnEl.style.display='block'
+    warnEl.innerHTML=`⚠️ <strong>Atención:</strong> ${caps.length} animal${caps.length>1?'es':''}
+      ${caps.length>1?'pertenecen':'pertenece'} a un capitalizador
+      (${Object.entries(capGroups).map(([k,v])=>`${v} de <strong>${k}</strong>`).join(', ')}).
+      Solo se registrará en ingresos la parte propia: <strong>${$m(totalPropios)}</strong>.
+      Los ${caps.length} del capitalizador se marcarán como vendidos sin generar ingreso.`
+  } else {
+    warnEl.style.display='none'
+  }
+}
+
+function saveVentaHacienda(){
+  const fecha=document.getElementById('vh-fecha').value
+  const tropaId=document.getElementById('vh-tropa').value
+  const cantidad=parseInt(document.getElementById('vh-cantidad').value)||0
+  const kg=parseFloat(document.getElementById('vh-kg').value)||0
+  const precio=parseFloat(document.getElementById('vh-precio').value)||0
+  const modo=document.getElementById('vh-precio-modo').value
+  const comprador=document.getElementById('vh-comprador').value.trim()
+  const obs=document.getElementById('vh-obs').value.trim()
+
+  if(!fecha){alert('Seleccioná la fecha de venta.');return}
+  if(!tropaId){alert('Seleccioná una tropa.');return}
+  if(!cantidad||cantidad<=0){alert('Ingresá la cantidad de animales a vender.');return}
+  if(!precio||precio<=0){alert('Ingresá el precio.');return}
+
+  const animales=getVentaAnimalesDisponibles()
+  if(cantidad>animales.length){alert(`Solo hay ${animales.length} animales disponibles con esos filtros.`);return}
+
+  const selAnimales=animales.slice(0,cantidad)
+  const propios=selAnimales.filter(a=>a.origen==='propio')
+  const caps=selAnimales.filter(a=>a.origen==='capitalizacion')
+  const kgTotal=kg>0?cantidad*kg:0
+
+  // Calcular total de la venta
+  let totalVenta=0
+  if(modo==='kilo'&&kg>0) totalVenta=cantidad*kg*precio
+  else if(modo==='cabeza') totalVenta=cantidad*precio
+  else if(modo==='total') totalVenta=precio
+  const totalPropios=propios.length>0?totalVenta*(propios.length/cantidad):0
+
+  const tropa=DB.tropas.find(t=>t.id===tropaId)
+  const tropaLabel=tropa?tropa.nombre:'Sin tropa'
+
+  if(!confirm(`¿Confirmar venta de ${cantidad} animales de "${tropaLabel}" por ${$m(totalVenta)} total?`)) return
+
+  // Marcar animales como vendidos
+  selAnimales.forEach(a=>{
+    a.estado='vendido'
+    if(kg>0) a.peso=kg
+    a.fechaVenta=fecha
+    a.compradorVenta=comprador||''
+  })
+
+  // Registrar ingreso solo por los propios
+  if(propios.length>0&&totalPropios>0){
+    if(!DB.ingresos) DB.ingresos=[]
+    const concepto=`Venta hacienda — ${propios.length} cab. ${document.getElementById('vh-cat').value||''} (${tropaLabel})${comprador?` → ${comprador}`:''}`
+    DB.ingresos.push({
+      id:uid(), fecha, tipo:'venta',
+      concepto: concepto.trim(),
+      contra: comprador,
+      aportante:'',
+      importe: Math.round(totalPropios),
+      nro:'',
+      uid:currentUser.id, uname:currentUser.name
+    })
+  }
+
+  const detLog=`${cantidad} animales de ${tropaLabel}${kg>0?` | ${kg}kg prom`:''}${totalVenta>0?` | ${$m(totalVenta)}`:''}${caps.length>0?` | ${caps.length} cap. sin ingreso`:''}`
+  logActivity('Venta de hacienda', detLog)
+  dbSave(DB)
+  closeM('m-venta-hacienda')
+  render()
+  toast(`Venta registrada: ${cantidad} animales${propios.length>0?` | Ingreso: ${$m(totalPropios)}`:''}`, '🐄')
+  if(propios.length>0) setTimeout(()=>toast('El ingreso fue registrado automáticamente en Finanzas','💰'),800)
+}
+
 function renderStock(){
   const s=(document.getElementById('stock-search')||{value:''}).value.toLowerCase()
   const cf=(document.getElementById('stock-cat')||{value:''}).value
