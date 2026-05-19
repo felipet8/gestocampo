@@ -458,7 +458,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
         <button onclick="debugSocios()" style="background:none;border:1px solid var(--wheat);border-radius:5px;cursor:pointer;font-size:10px;color:var(--hide);padding:2px 7px" title="Ver datos crudos">🔍 debug</button>
       </div>
       <div style="padding:0" id="dash-aportes">
-        <table><thead><tr><th>Socio</th><th style="text-align:right">Aportado</th><th style="text-align:right">Retirado</th><th style="text-align:right;color:var(--ink)">Saldo</th></tr></thead>
+        <table><thead><tr><th>Socio</th><th style="text-align:right">Saldo Neto</th></tr></thead>
         <tbody id="dash-aportes-tbody"></tbody></table>
       </div>
     </div>
@@ -2858,22 +2858,26 @@ function renderDashboard(){
     const totA=rows.reduce((s,v)=>s+v.aportado,0)
     const totR=rows.reduce((s,v)=>s+v.retirado,0)
     const totS=totA-totR
+    // Tabla con 2 columnas: Socio (con detalle inline) | Saldo neto
+    // Así funciona bien en móvil sin depender de columnas ocultas
     aportesTb.innerHTML=rows.length
       ? rows.map(v=>{
           const saldo=v.aportado-v.retirado
+          const detalle=v.retirado>0
+            ?`<div style="font-size:10px;color:var(--hide);margin-top:2px">Aportado: ${$m(v.aportado)} · Retirado: <span style="color:var(--rust)">${$m(v.retirado)}</span></div>`
+            :`<div style="font-size:10px;color:var(--hide);margin-top:2px">Aportado: ${$m(v.aportado)}</div>`
           return`<tr>
-            <td><strong>${v.nombre}</strong></td>
-            <td style="text-align:right" class="money-pos">${$m(v.aportado)}</td>
-            <td style="text-align:right;color:var(--rust)">${v.retirado>0?$m(v.retirado):'—'}</td>
-            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;color:${saldo>=0?'var(--green)':'var(--rust)'}">${$m(saldo)}</td>
+            <td><strong>${v.nombre}</strong>${detalle}</td>
+            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:${saldo>=0?'var(--green)':'var(--rust)'};white-space:nowrap">${$m(saldo)}</td>
           </tr>`}).join('')
         +`<tr style="background:var(--parch);border-top:2px solid var(--wheat)">
-            <td style="font-size:11px;font-weight:700;color:var(--hide);text-transform:uppercase;letter-spacing:.05em">Total</td>
-            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:700;color:var(--green)">${$m(totA)}</td>
-            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:700;color:var(--rust)">${totR>0?$m(totR):'—'}</td>
-            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;color:${totS>=0?'var(--green)':'var(--rust)'}">${$m(totS)}</td>
+            <td style="font-size:11px;font-weight:700;color:var(--hide);text-transform:uppercase;letter-spacing:.05em">
+              Total
+              ${totR>0?`<div style="font-size:10px;font-weight:400;margin-top:1px">Aportado: ${$m(totA)} · Retirado: <span style="color:var(--rust)">${$m(totR)}</span></div>`:`<div style="font-size:10px;font-weight:400;margin-top:1px">Aportado: ${$m(totA)}</div>`}
+            </td>
+            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:${totS>=0?'var(--green)':'var(--rust)'};white-space:nowrap">${$m(totS)}</td>
           </tr>`
-      : '<tr class="empty-row"><td colspan="4">Sin aportes registrados</td></tr>'
+      : '<tr class="empty-row"><td colspan="2">Sin aportes registrados</td></tr>'
   }
 
   renderActivityWidget()
