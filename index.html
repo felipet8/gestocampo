@@ -1137,9 +1137,8 @@ tr:hover td{background:rgba(242,232,208,.4)}
       <!-- Campo Socio: solo visible para Retiro Socio -->
       <div class="fg" id="e-fg-socio" style="display:none">
         <label>Socio que retira *</label>
-        <select id="e-socio">
-          <option value="">— Seleccioná el socio —</option>
-        </select>
+        <input id="e-socio" list="e-socio-list" placeholder="Nombre del socio…" autocomplete="off">
+        <datalist id="e-socio-list"></datalist>
       </div>
       <div class="fg"><label>Detalle *</label><input id="e-det" placeholder="Descripción…"></div>
       <div class="fr">
@@ -1834,6 +1833,15 @@ function openM(id){
   if(f&&!f.value)f.value=today()
   if(id==='m-animal')populateLoteSelect()
   if(id==='m-ing'){toggleIngFields()}
+  if(id==='m-egr'){
+    // Solo resetear si NO viene de editEgr (que setea dataset.editId antes de llamar openM)
+    if(!document.getElementById('m-egr').dataset.editId){
+      document.querySelector('#m-egr .mh h3').textContent='Registrar Egreso'
+      clr('e-det','e-prov','e-imp','e-nro','e-socio')
+      document.getElementById('e-cat').value='produccion'
+    }
+    toggleEgrFields()
+  }
   if(id==='m-ins-ingreso'){
     updateInsIngresoFields()
     // populate silo selector
@@ -2688,10 +2696,14 @@ function toggleEgrFields(){
   document.getElementById('e-fg-socio').style.display=isRetiro?'block':'none'
   document.getElementById('e-fg-prov').style.display=isRetiro?'none':'block'
   if(isRetiro){
-    // Poblar selector con socios conocidos (aportantes únicos)
-    const sel=document.getElementById('e-socio')
-    const conocidos=[...new Set(DB.ingresos.filter(i=>i.tipo==='aporte'&&(i.aportante||i.contra)).map(i=>i.aportante||i.contra))].sort()
-    sel.innerHTML='<option value="">— Seleccioná el socio —</option>'+conocidos.map(n=>`<option value="${n}">${n}</option>`).join('')
+    // Poblar datalist con socios conocidos (aportantes únicos de ingresos + socios de retiros previos)
+    const dl=document.getElementById('e-socio-list')
+    if(dl){
+      const deAportes=DB.ingresos.filter(i=>i.tipo==='aporte'&&(i.aportante||i.contra)).map(i=>i.aportante||i.contra)
+      const deRetiros=DB.egresos.filter(e=>e.cat==='retiro'&&(e.socio||e.prov)).map(e=>e.socio||e.prov)
+      const conocidos=[...new Set([...deAportes,...deRetiros])].sort()
+      dl.innerHTML=conocidos.map(n=>`<option value="${n}">`).join('')
+    }
   }
 }
 function saveEgr(){
@@ -2701,9 +2713,10 @@ function saveEgr(){
   if(!imp||!det){alert('Completá detalle e importe.');return}
   const isRetiro=cat==='retiro'
   const socio=isRetiro?(document.getElementById('e-socio').value.trim()||''):''
-  if(isRetiro&&!socio){alert('Seleccioná el socio que realiza el retiro.');return}
+  if(isRetiro&&!socio){alert('Escribí el nombre del socio que realiza el retiro.');return}
+  const editId=document.getElementById('m-egr').dataset.editId||''
   const rec={
-    id:uid(),
+    id:editId||uid(),
     fecha:document.getElementById('e-fecha').value,
     cat, detalle:det,
     prov: isRetiro ? socio : document.getElementById('e-prov').value,
@@ -2712,14 +2725,42 @@ function saveEgr(){
     nro:document.getElementById('e-nro').value,
     uid:currentUser.id, uname:currentUser.name
   }
-  DB.egresos.push(rec)
+  if(editId){
+    const idx=DB.egresos.findIndex(e=>e.id===editId)
+    if(idx>=0)DB.egresos[idx]=rec; else DB.egresos.push(rec)
+  } else {
+    DB.egresos.push(rec)
+  }
   dbSave(DB)
-  logActivity('Egreso registrado',`${det} ${$m(imp)}${isRetiro?' — Retiro: '+socio:''}`)
+  logActivity(editId?'Egreso editado':'Egreso registrado',`${det} ${$m(imp)}${isRetiro?' — Retiro: '+socio:''}`)
+  // Reset modal
+  delete document.getElementById('m-egr').dataset.editId
+  document.querySelector('#m-egr .mh h3').textContent='Registrar Egreso'
   closeM('m-egr')
-  clr('e-det','e-prov','e-imp','e-nro')
+  clr('e-det','e-prov','e-imp','e-nro','e-socio')
   document.getElementById('e-cat').value='produccion'
   toggleEgrFields()
   render()
+}
+function editEgr(id){
+  const e=DB.egresos.find(x=>x.id===id);if(!e)return
+  // Cargar datos en el modal
+  document.getElementById('e-fecha').value=e.fecha||today()
+  document.getElementById('e-cat').value=e.cat||'produccion'
+  document.getElementById('e-det').value=e.detalle||''
+  document.getElementById('e-imp').value=e.importe||''
+  document.getElementById('e-nro').value=e.nro||''
+  toggleEgrFields()
+  const isRetiro=e.cat==='retiro'
+  if(isRetiro){
+    document.getElementById('e-socio').value=e.socio||e.prov||''
+  } else {
+    document.getElementById('e-prov').value=e.prov||''
+  }
+  // Guardar id para saber que es edición
+  document.getElementById('m-egr').dataset.editId=id
+  document.querySelector('#m-egr .mh h3').textContent='Editar Egreso'
+  openM('m-egr')
 }
 function delEgr(id){
   if(!isAdmin()){toast('Solo el administrador puede eliminar','🔒');return}
@@ -2732,10 +2773,13 @@ function renderEgresos(){
   const tb=document.getElementById('egr-tbody');if(!tb)return
   tb.innerHTML=d.length?d.map(e=>{
     const isRetiro=e.cat==='retiro'
+    const sinSocio=isRetiro&&!(e.socio||e.prov)
     const provCell=isRetiro
-      ?`<span style="font-weight:600;color:var(--rust)">${e.socio||e.prov||'-'}</span>`
+      ?(sinSocio
+        ?`<span style="color:var(--rust);font-size:11px;font-weight:600">⚠️ Sin socio — <span style="cursor:pointer;text-decoration:underline" onclick="editEgr('${e.id}')">corregir</span></span>`
+        :`<span style="font-weight:600;color:var(--rust)">${e.socio||e.prov}</span>`)
       :(e.prov||'-')
-    const rowStyle=isRetiro?'background:rgba(184,60,42,.04)':''
+    const rowStyle=sinSocio?'background:rgba(184,60,42,.08)':isRetiro?'background:rgba(184,60,42,.04)':''
     return`<tr style="${rowStyle}">
       <td>${$fd(e.fecha)}</td>
       <td><span class="badge ${ECB[e.cat]||'b-bark'}">${ECL[e.cat]||e.cat}</span></td>
@@ -2743,7 +2787,7 @@ function renderEgresos(){
       <td>${provCell}</td>
       <td style="font-size:11px;color:var(--hide)">${e.uname||'-'}</td>
       <td style="text-align:right" class="money-neg">${$m(e.importe)}</td>
-      <td><button class="icon-btn" onclick="delEgr('${e.id}')">🗑</button></td>
+      <td style="display:flex;gap:3px"><button class="icon-btn" onclick="editEgr('${e.id}')" title="Editar">✏️</button><button class="icon-btn" onclick="delEgr('${e.id}')">🗑</button></td>
     </tr>`
   }).join(''):'<tr class="empty-row"><td colspan="7">Sin egresos</td></tr>'
   const el=document.getElementById('egr-stats');if(!el)return
@@ -2777,30 +2821,35 @@ function renderDashboard(){
   tb.innerHTML=movs.length?movs.map(m=>`<tr><td>${$fd(m.f)}</td><td><span class="badge ${m.d>0?'b-green':'b-red'}">${m.t}</span></td><td>${m.c||'-'}</td><td style="text-align:right" class="${m.d>0?'money-pos':'money-neg'}">${m.d>0?'+':'-'}${$m(m.v)}</td></tr>`).join(''):'<tr class="empty-row"><td colspan="4">Sin movimientos</td></tr>'
 
   // ── Posición por socio (aportes - retiros) ──
+  // Usamos clave normalizada (minúsculas+trim) para que "Juan García" y "juan garcía" se unifiquen
   const aportesTb=document.getElementById('dash-aportes-tbody')
   if(aportesTb){
-    const porSocio={}
+    const norm=s=>(s||'').trim().toLowerCase()
+    const porSocio={}  // key normalizada → {nombre, aportado, retirado}
     // Acumular aportes
     DB.ingresos.filter(i=>i.tipo==='aporte').forEach(i=>{
-      const k=i.aportante||i.contra||'Sin nombre'
-      if(!porSocio[k])porSocio[k]={aportado:0,retirado:0}
+      const nombre=(i.aportante||i.contra||'Sin nombre').trim()
+      const k=norm(nombre)
+      if(!porSocio[k])porSocio[k]={nombre,aportado:0,retirado:0}
       porSocio[k].aportado+=i.importe
     })
-    // Acumular retiros
+    // Acumular retiros — la clave normalizada asegura que coincida aunque haya diferencias de mayúsculas
     DB.egresos.filter(e=>e.cat==='retiro').forEach(e=>{
-      const k=e.socio||e.prov||'Sin nombre'
-      if(!porSocio[k])porSocio[k]={aportado:0,retirado:0}
+      const nombre=(e.socio||e.prov||'').trim()
+      if(!nombre)return  // retiro sin socio identificado → ignorar
+      const k=norm(nombre)
+      if(!porSocio[k])porSocio[k]={nombre,aportado:0,retirado:0}
       porSocio[k].retirado+=e.importe
     })
-    const rows=Object.entries(porSocio).sort((a,b)=>(b[1].aportado-b[1].retirado)-(a[1].aportado-a[1].retirado))
-    const totA=rows.reduce((s,[,v])=>s+v.aportado,0)
-    const totR=rows.reduce((s,[,v])=>s+v.retirado,0)
+    const rows=Object.values(porSocio).sort((a,b)=>(b.aportado-b.retirado)-(a.aportado-a.retirado))
+    const totA=rows.reduce((s,v)=>s+v.aportado,0)
+    const totR=rows.reduce((s,v)=>s+v.retirado,0)
     const totS=totA-totR
     aportesTb.innerHTML=rows.length
-      ? rows.map(([nombre,v])=>{
+      ? rows.map(v=>{
           const saldo=v.aportado-v.retirado
           return`<tr>
-            <td><strong>${nombre}</strong></td>
+            <td><strong>${v.nombre}</strong></td>
             <td style="text-align:right" class="money-pos">${$m(v.aportado)}</td>
             <td style="text-align:right;color:var(--rust)">${v.retirado>0?$m(v.retirado):'—'}</td>
             <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;color:${saldo>=0?'var(--green)':'var(--rust)'}">${$m(saldo)}</td>
