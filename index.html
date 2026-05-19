@@ -453,7 +453,10 @@ tr:hover td{background:rgba(242,232,208,.4)}
       <tbody id="dash-movs"></tbody></table>
     </div>
     <div class="tw">
-      <div class="tw-head"><h3>🤝 Posición por Socio</h3></div>
+      <div class="tw-head" style="justify-content:space-between">
+        <h3>🤝 Posición por Socio</h3>
+        <button onclick="debugSocios()" style="background:none;border:1px solid var(--wheat);border-radius:5px;cursor:pointer;font-size:10px;color:var(--hide);padding:2px 7px" title="Ver datos crudos">🔍 debug</button>
+      </div>
       <div style="padding:0" id="dash-aportes">
         <table><thead><tr><th>Socio</th><th style="text-align:right">Aportado</th><th style="text-align:right">Retirado</th><th style="text-align:right;color:var(--ink)">Saldo</th></tr></thead>
         <tbody id="dash-aportes-tbody"></tbody></table>
@@ -2803,6 +2806,16 @@ function renderEgresos(){
 // ══════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════
+function debugSocios(){
+  const aportes=DB.ingresos.filter(i=>i.tipo==='aporte')
+  const retiros=DB.egresos.filter(e=>e.cat==='retiro')
+  let msg='=== APORTES ('+aportes.length+') ===\n'
+  aportes.forEach(i=>{ msg+='  clave: "'+( i.aportante||i.contra||'??' )+'" | $'+i.importe+'\n' })
+  msg+='\n=== RETIROS ('+retiros.length+') ===\n'
+  retiros.forEach(e=>{ msg+='  socio:"'+(e.socio||'')+'" prov:"'+(e.prov||'')+'" | $'+e.importe+'\n' })
+  if(retiros.length===0) msg+='\n⚠️ No hay ningún egreso con cat="retiro" en el DB.\nVerificá que guardaste correctamente.'
+  alert(msg)
+}
 function renderDashboard(){
   const act=DB.animales.filter(a=>a.estado==='activo')
   const ing=sum(DB.ingresos,i=>i.importe),egr=sum(DB.egresos,e=>e.importe),bal=ing-egr
