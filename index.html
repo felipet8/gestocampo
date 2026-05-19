@@ -453,9 +453,9 @@ tr:hover td{background:rgba(242,232,208,.4)}
       <tbody id="dash-movs"></tbody></table>
     </div>
     <div class="tw">
-      <div class="tw-head"><h3>🤝 Aportes por Socio</h3></div>
+      <div class="tw-head"><h3>🤝 Posición por Socio</h3></div>
       <div style="padding:0" id="dash-aportes">
-        <table><thead><tr><th>Socio</th><th style="text-align:right">Total Aportado</th><th style="text-align:right">N°</th></tr></thead>
+        <table><thead><tr><th>Socio</th><th style="text-align:right">Aportado</th><th style="text-align:right">Retirado</th><th style="text-align:right;color:var(--ink)">Saldo</th></tr></thead>
         <tbody id="dash-aportes-tbody"></tbody></table>
       </div>
     </div>
@@ -792,7 +792,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
   </div>
   <div class="stats" id="egr-stats"></div>
   <div class="filter-bar">
-    <select id="egr-cat-f" onchange="renderEgresos()"><option value="">Todas las cat.</option><option value="produccion">Producción</option><option value="compra">Compra Hacienda</option><option value="sueldo">Sueldos</option><option value="sanidad">Sanidad</option><option value="combustible">Combustible</option><option value="infraestructura">Infraestructura</option><option value="impuestos">Impuestos</option><option value="otro">Otro</option></select>
+    <select id="egr-cat-f" onchange="renderEgresos()"><option value="">Todas las cat.</option><option value="produccion">Producción</option><option value="compra">Compra Hacienda</option><option value="sueldo">Sueldos</option><option value="sanidad">Sanidad</option><option value="combustible">Combustible</option><option value="infraestructura">Infraestructura</option><option value="impuestos">Impuestos</option><option value="retiro">Retiro Socio</option><option value="otro">Otro</option></select>
     <input type="month" id="egr-mes" onchange="renderEgresos()">
   </div>
   <div class="tw"><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th>Proveedor</th><th>Usuario</th><th style="text-align:right">Importe</th><th></th></tr></thead><tbody id="egr-tbody"></tbody></table></div>
@@ -1118,9 +1118,34 @@ tr:hover td{background:rgba(242,232,208,.4)}
   <div class="modal">
     <div class="mh"><h3>Registrar Egreso</h3><button class="x-btn" onclick="closeM('m-egr')">✕</button></div>
     <div class="mb-body">
-      <div class="fr"><div class="fg"><label>Fecha *</label><input id="e-fecha" type="date"></div><div class="fg"><label>Categoría *</label><select id="e-cat"><option value="produccion">Producción</option><option value="compra">Compra Hacienda</option><option value="sueldo">Sueldos</option><option value="sanidad">Sanidad</option><option value="combustible">Combustible</option><option value="infraestructura">Infraestructura</option><option value="impuestos">Impuestos</option><option value="otro">Otro</option></select></div></div>
+      <div class="fr">
+        <div class="fg"><label>Fecha *</label><input id="e-fecha" type="date"></div>
+        <div class="fg"><label>Categoría *</label>
+          <select id="e-cat" onchange="toggleEgrFields()">
+            <option value="produccion">Producción</option>
+            <option value="compra">Compra Hacienda</option>
+            <option value="sueldo">Sueldos</option>
+            <option value="sanidad">Sanidad</option>
+            <option value="combustible">Combustible</option>
+            <option value="infraestructura">Infraestructura</option>
+            <option value="impuestos">Impuestos</option>
+            <option value="retiro">💸 Retiro Socio</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+      <!-- Campo Socio: solo visible para Retiro Socio -->
+      <div class="fg" id="e-fg-socio" style="display:none">
+        <label>Socio que retira *</label>
+        <select id="e-socio">
+          <option value="">— Seleccioná el socio —</option>
+        </select>
+      </div>
       <div class="fg"><label>Detalle *</label><input id="e-det" placeholder="Descripción…"></div>
-      <div class="fr"><div class="fg"><label>Proveedor</label><input id="e-prov" placeholder="Nombre opcional"></div><div class="fg"><label>Importe ($) *</label><input id="e-imp" type="number" step="0.01" placeholder="0.00"></div></div>
+      <div class="fr">
+        <div class="fg" id="e-fg-prov"><label>Proveedor</label><input id="e-prov" placeholder="Nombre opcional"></div>
+        <div class="fg"><label>Importe ($) *</label><input id="e-imp" type="number" step="0.01" placeholder="0.00"></div>
+      </div>
       <div class="fg"><label>N° Comprobante</label><input id="e-nro" placeholder="Opcional"></div>
     </div>
     <div class="mf"><button class="btn btn-g" onclick="closeM('m-egr')">Cancelar</button><button class="btn btn-d" onclick="saveEgr()">Guardar</button></div>
@@ -1711,8 +1736,8 @@ function logActivity(action,detail){
 // ── LABELS ──────────────────────────────────────────────────────
 const ITL={capitalizacion:'Capitalización',venta:'Venta Hacienda',aporte:'Aporte Socio',otro:'Otro'}
 const ITB={capitalizacion:'b-gold',venta:'b-green',aporte:'b-sky',otro:'b-bark'}
-const ECL={produccion:'Producción',compra:'Compra Hacienda',sueldo:'Sueldos',sanidad:'Sanidad',combustible:'Combustible',infraestructura:'Infraestructura',impuestos:'Impuestos',otro:'Otro'}
-const ECB={produccion:'b-bark',compra:'b-gold',sueldo:'b-sky',sanidad:'b-green',combustible:'b-bark',infraestructura:'b-bark',impuestos:'b-red',otro:'b-bark'}
+const ECL={produccion:'Producción',compra:'Compra Hacienda',sueldo:'Sueldos',sanidad:'Sanidad',combustible:'Combustible',infraestructura:'Infraestructura',impuestos:'Impuestos',retiro:'Retiro Socio',otro:'Otro'}
+const ECB={produccion:'b-bark',compra:'b-gold',sueldo:'b-sky',sanidad:'b-green',combustible:'b-bark',infraestructura:'b-bark',impuestos:'b-red',retiro:'b-red',otro:'b-bark'}
 function $m(n){return'$'+Number(n).toLocaleString('es-AR',{maximumFractionDigits:0})}
 function $fd(d){if(!d)return'-';const[y,m,dd]=d.split('-');return`${dd}/${m}/${y}`}
 function sum(arr,fn){return arr.reduce((s,x)=>s+fn(x),0)}
@@ -2657,11 +2682,44 @@ function renderIngresos(){
 // ══════════════════════════════════════════════════
 // EGRESOS
 // ══════════════════════════════════════════════════
+function toggleEgrFields(){
+  const cat=document.getElementById('e-cat').value
+  const isRetiro=cat==='retiro'
+  document.getElementById('e-fg-socio').style.display=isRetiro?'block':'none'
+  document.getElementById('e-fg-prov').style.display=isRetiro?'none':'block'
+  if(isRetiro){
+    // Poblar selector con socios conocidos (aportantes únicos)
+    const sel=document.getElementById('e-socio')
+    const conocidos=[...new Set(DB.ingresos.filter(i=>i.tipo==='aporte'&&(i.aportante||i.contra)).map(i=>i.aportante||i.contra))].sort()
+    sel.innerHTML='<option value="">— Seleccioná el socio —</option>'+conocidos.map(n=>`<option value="${n}">${n}</option>`).join('')
+  }
+}
 function saveEgr(){
-  const imp=parseFloat(document.getElementById('e-imp').value)||0,det=document.getElementById('e-det').value.trim()
+  const imp=parseFloat(document.getElementById('e-imp').value)||0
+  const det=document.getElementById('e-det').value.trim()
+  const cat=document.getElementById('e-cat').value
   if(!imp||!det){alert('Completá detalle e importe.');return}
-  const rec={id:uid(),fecha:document.getElementById('e-fecha').value,cat:document.getElementById('e-cat').value,detalle:det,prov:document.getElementById('e-prov').value,importe:imp,nro:document.getElementById('e-nro').value,uid:currentUser.id,uname:currentUser.name}
-  DB.egresos.push(rec);dbSave(DB);logActivity('Egreso registrado',`${det} ${$m(imp)}`);closeM('m-egr');clr('e-det','e-prov','e-imp','e-nro');render()
+  const isRetiro=cat==='retiro'
+  const socio=isRetiro?(document.getElementById('e-socio').value.trim()||''):''
+  if(isRetiro&&!socio){alert('Seleccioná el socio que realiza el retiro.');return}
+  const rec={
+    id:uid(),
+    fecha:document.getElementById('e-fecha').value,
+    cat, detalle:det,
+    prov: isRetiro ? socio : document.getElementById('e-prov').value,
+    socio: isRetiro ? socio : '',
+    importe:imp,
+    nro:document.getElementById('e-nro').value,
+    uid:currentUser.id, uname:currentUser.name
+  }
+  DB.egresos.push(rec)
+  dbSave(DB)
+  logActivity('Egreso registrado',`${det} ${$m(imp)}${isRetiro?' — Retiro: '+socio:''}`)
+  closeM('m-egr')
+  clr('e-det','e-prov','e-imp','e-nro')
+  document.getElementById('e-cat').value='produccion'
+  toggleEgrFields()
+  render()
 }
 function delEgr(id){
   if(!isAdmin()){toast('Solo el administrador puede eliminar','🔒');return}
@@ -2672,9 +2730,30 @@ function renderEgresos(){
   let d=[...DB.egresos].sort((a,b)=>b.fecha.localeCompare(a.fecha))
   if(cf)d=d.filter(e=>e.cat===cf);if(mf)d=d.filter(e=>e.fecha.startsWith(mf))
   const tb=document.getElementById('egr-tbody');if(!tb)return
-  tb.innerHTML=d.length?d.map(e=>`<tr><td>${$fd(e.fecha)}</td><td><span class="badge ${ECB[e.cat]||'b-bark'}">${ECL[e.cat]||e.cat}</span></td><td>${e.detalle}</td><td>${e.prov||'-'}</td><td style="font-size:11px;color:var(--hide)">${e.uname||'-'}</td><td style="text-align:right" class="money-neg">${$m(e.importe)}</td><td><button class="icon-btn" onclick="delEgr('${e.id}')">🗑</button></td></tr>`).join(''):'<tr class="empty-row"><td colspan="7">Sin egresos</td></tr>'
+  tb.innerHTML=d.length?d.map(e=>{
+    const isRetiro=e.cat==='retiro'
+    const provCell=isRetiro
+      ?`<span style="font-weight:600;color:var(--rust)">${e.socio||e.prov||'-'}</span>`
+      :(e.prov||'-')
+    const rowStyle=isRetiro?'background:rgba(184,60,42,.04)':''
+    return`<tr style="${rowStyle}">
+      <td>${$fd(e.fecha)}</td>
+      <td><span class="badge ${ECB[e.cat]||'b-bark'}">${ECL[e.cat]||e.cat}</span></td>
+      <td>${e.detalle}</td>
+      <td>${provCell}</td>
+      <td style="font-size:11px;color:var(--hide)">${e.uname||'-'}</td>
+      <td style="text-align:right" class="money-neg">${$m(e.importe)}</td>
+      <td><button class="icon-btn" onclick="delEgr('${e.id}')">🗑</button></td>
+    </tr>`
+  }).join(''):'<tr class="empty-row"><td colspan="7">Sin egresos</td></tr>'
   const el=document.getElementById('egr-stats');if(!el)return
-  el.innerHTML=`<div class="sc"><span class="sc-icon">📤</span><div class="sc-label">Total</div><div class="sc-value r">${$m(sum(DB.egresos,e=>e.importe))}</div></div><div class="sc"><span class="sc-icon">🌾</span><div class="sc-label">Producción</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='produccion'),e=>e.importe))}</div></div><div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Compra Hac.</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='compra'),e=>e.importe))}</div></div><div class="sc"><span class="sc-icon">👷</span><div class="sc-label">Sueldos</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='sueldo'),e=>e.importe))}</div></div>`
+  const retiros=sum(DB.egresos.filter(e=>e.cat==='retiro'),e=>e.importe)
+  el.innerHTML=`
+    <div class="sc"><span class="sc-icon">📤</span><div class="sc-label">Total</div><div class="sc-value r">${$m(sum(DB.egresos,e=>e.importe))}</div></div>
+    <div class="sc"><span class="sc-icon">🌾</span><div class="sc-label">Producción</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='produccion'),e=>e.importe))}</div></div>
+    <div class="sc"><span class="sc-icon">🐄</span><div class="sc-label">Compra Hac.</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='compra'),e=>e.importe))}</div></div>
+    <div class="sc"><span class="sc-icon">👷</span><div class="sc-label">Sueldos</div><div class="sc-value r">${$m(sum(DB.egresos.filter(e=>e.cat==='sueldo'),e=>e.importe))}</div></div>
+    ${retiros>0?`<div class="sc"><span class="sc-icon">💸</span><div class="sc-label">Retiros Socios</div><div class="sc-value r">${$m(retiros)}</div></div>`:''}`
 }
 
 // ══════════════════════════════════════════════════
@@ -2697,27 +2776,42 @@ function renderDashboard(){
   const tb=document.getElementById('dash-movs');if(!tb)return
   tb.innerHTML=movs.length?movs.map(m=>`<tr><td>${$fd(m.f)}</td><td><span class="badge ${m.d>0?'b-green':'b-red'}">${m.t}</span></td><td>${m.c||'-'}</td><td style="text-align:right" class="${m.d>0?'money-pos':'money-neg'}">${m.d>0?'+':'-'}${$m(m.v)}</td></tr>`).join(''):'<tr class="empty-row"><td colspan="4">Sin movimientos</td></tr>'
 
-  // ── Aportes por socio ──
+  // ── Posición por socio (aportes - retiros) ──
   const aportesTb=document.getElementById('dash-aportes-tbody')
   if(aportesTb){
-    const aportes=DB.ingresos.filter(i=>i.tipo==='aporte')
     const porSocio={}
-    aportes.forEach(i=>{
-      const key=i.aportante||i.contra||'Sin nombre'
-      if(!porSocio[key])porSocio[key]={total:0,count:0}
-      porSocio[key].total+=i.importe
-      porSocio[key].count++
+    // Acumular aportes
+    DB.ingresos.filter(i=>i.tipo==='aporte').forEach(i=>{
+      const k=i.aportante||i.contra||'Sin nombre'
+      if(!porSocio[k])porSocio[k]={aportado:0,retirado:0}
+      porSocio[k].aportado+=i.importe
     })
-    const rows=Object.entries(porSocio).sort((a,b)=>b[1].total-a[1].total)
-    const totalAportes=rows.reduce((s,[,v])=>s+v.total,0)
+    // Acumular retiros
+    DB.egresos.filter(e=>e.cat==='retiro').forEach(e=>{
+      const k=e.socio||e.prov||'Sin nombre'
+      if(!porSocio[k])porSocio[k]={aportado:0,retirado:0}
+      porSocio[k].retirado+=e.importe
+    })
+    const rows=Object.entries(porSocio).sort((a,b)=>(b[1].aportado-b[1].retirado)-(a[1].aportado-a[1].retirado))
+    const totA=rows.reduce((s,[,v])=>s+v.aportado,0)
+    const totR=rows.reduce((s,[,v])=>s+v.retirado,0)
+    const totS=totA-totR
     aportesTb.innerHTML=rows.length
-      ? rows.map(([nombre,v])=>`<tr>
-          <td><strong>${nombre}</strong></td>
-          <td style="text-align:right" class="money-pos">${$m(v.total)}</td>
-          <td style="text-align:right;color:var(--hide);font-size:11px">${v.count}</td>
-        </tr>`).join('')
-        +`<tr style="background:var(--parch)"><td style="font-size:11px;font-weight:600;color:var(--hide);text-transform:uppercase;letter-spacing:.05em">Total</td><td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;color:var(--green)">${$m(totalAportes)}</td><td></td></tr>`
-      : '<tr class="empty-row"><td colspan="3">Sin aportes registrados</td></tr>'
+      ? rows.map(([nombre,v])=>{
+          const saldo=v.aportado-v.retirado
+          return`<tr>
+            <td><strong>${nombre}</strong></td>
+            <td style="text-align:right" class="money-pos">${$m(v.aportado)}</td>
+            <td style="text-align:right;color:var(--rust)">${v.retirado>0?$m(v.retirado):'—'}</td>
+            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;color:${saldo>=0?'var(--green)':'var(--rust)'}">${$m(saldo)}</td>
+          </tr>`}).join('')
+        +`<tr style="background:var(--parch);border-top:2px solid var(--wheat)">
+            <td style="font-size:11px;font-weight:700;color:var(--hide);text-transform:uppercase;letter-spacing:.05em">Total</td>
+            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:700;color:var(--green)">${$m(totA)}</td>
+            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:700;color:var(--rust)">${totR>0?$m(totR):'—'}</td>
+            <td style="text-align:right;font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;color:${totS>=0?'var(--green)':'var(--rust)'}">${$m(totS)}</td>
+          </tr>`
+      : '<tr class="empty-row"><td colspan="4">Sin aportes registrados</td></tr>'
   }
 
   renderActivityWidget()
