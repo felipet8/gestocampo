@@ -1649,65 +1649,118 @@ function mergeLocalRemote(local,remote){
   }
 }
 
-// Guardar: siempre local primero, luego push async
+// ── SYNC ENGINE v3 ────────────────────────────────────
+// Garantías:
+//  1. Siempre guarda local PRIMERO (nunca se pierde nada)
+//  2. Push a JSONBin con debounce corto (600ms)
+//  3. Si falla → reintenta cada 30s mientras haya pendiente
+//  4. Push inmediato cuando la pestaña se oculta / cierra
+//  5. Al abrir la app, si hay pendiente lo sube antes de hacer nada
+
+let _lastSavedTs = 0   // timestamp del último push exitoso
+let _retryTimer   = null
+
 function dbSave(db){
   db._version = Date.now()
-  localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(db))
-  if(!USE_JSONBIN)return
+  localStorage.setItem(DB_LOCAL_KEY, JSON.stringify(db))
+  updateSyncLabel()
+  if(!USE_JSONBIN) return
   setPending(true)
   clearTimeout(syncDebounce)
-  syncDebounce=setTimeout(()=>dbPush(db),1400)
+  syncDebounce = setTimeout(() => dbPush(db), 600)   // ← era 1400ms
 }
 
-async function dbPush(db){
-  setSyncStatus('syncing')
+async function dbPush(db, silent=false){
+  if(!USE_JSONBIN) return
+  syncDebounce = null
+  if(!navigator.onLine){ setSyncStatus('local'); return }
+  if(!silent) setSyncStatus('syncing')
   try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,{
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,{
       method:'PUT',
       headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'},
-      body:JSON.stringify(db)
+      body: JSON.stringify(db)
     })
-    if(!r.ok)throw new Error('HTTP '+r.status)
+    if(!r.ok) throw new Error('HTTP '+r.status)
     setPending(false)
+    _lastSavedTs = Date.now()
     setSyncStatus('ok')
+    clearTimeout(_retryTimer); _retryTimer = null
   }catch(e){
-    console.warn('JSONBin save failed, will retry on reconnect:',e)
+    console.warn('JSONBin push failed:',e)
     setPending(true)
-    setSyncStatus(navigator.onLine?'error':'local')
+    setSyncStatus(navigator.onLine ? 'error' : 'local')
+    scheduleRetry()
   }
 }
 
-// Auto-refresh cada 60s — SOLO actualiza si remote tiene MÁS datos que local
-// Esto evita pisar cambios locales que todavía no se sincronizaron
+// Reintenta automáticamente cada 30s si hay cambios pendientes
+function scheduleRetry(){
+  if(_retryTimer) return
+  _retryTimer = setTimeout(async()=>{
+    _retryTimer = null
+    if(getPending() && navigator.onLine){
+      await dbPush(DB)
+    }
+  }, 30000)
+}
+
+// Push inmediato cuando el usuario sale / minimiza la app
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden' && getPending() && USE_JSONBIN){
+    dbPush(DB, true)   // silent=true para no cambiar iconos mientras sale
+  }
+})
+window.addEventListener('beforeunload', ()=>{
+  if(getPending() && USE_JSONBIN){
+    // sendBeacon: disparo-y-olvido que el navegador completa aunque se cierre la pestaña
+    const blob = new Blob([JSON.stringify(DB)], {type:'application/json'})
+    navigator.sendBeacon &&
+      navigator.sendBeacon(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, blob)
+  }
+})
+
+// Etiqueta "guardado hace X" en el indicador
+function updateSyncLabel(){
+  if(!_lastSavedTs) return
+  const sec = Math.round((Date.now()-_lastSavedTs)/1000)
+  const el = document.getElementById('sync-indicator')
+  if(el && syncStatus==='ok'){
+    const ago = sec<5?'recién':`hace ${sec}s`
+    el.title = `Último guardado en la nube: ${ago}`
+  }
+}
+setInterval(updateSyncLabel, 5000)
+
+// Auto-refresh cada 45s para ver cambios de otros usuarios
 let autoRefreshInterval = null
 function startAutoRefresh(){
   stopAutoRefresh()
-  if(!USE_JSONBIN)return
-  autoRefreshInterval=setInterval(async()=>{
-    if(syncDebounce)return  // push pendiente, no refrescar ahora
-    if(!navigator.onLine)return
+  if(!USE_JSONBIN) return
+  autoRefreshInterval = setInterval(async()=>{
+    if(syncDebounce || getPending()) return  // hay push propio pendiente, esperar
+    if(!navigator.onLine) return
     try{
-      const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,{
+      const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,{
         headers:{'X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'}
       })
-      if(!r.ok)return
-      const remote=await r.json()
-      if(!remote.lotes||remote.lotes.length===0)remote.lotes=LOTES_SHAPE.map(l=>({...l}))
-      // Actualizar solo si el remoto tiene una versión más nueva (otro usuario guardó)
-      const remoteVersion=remote._version||0
-      const localVersion=DB._version||0
-      if(remoteVersion>localVersion){
-        const merged=mergeLocalRemote(DB,remote)
-        DB=merged
-        localStorage.setItem(DB_LOCAL_KEY,JSON.stringify(DB))
+      if(!r.ok) return
+      const remote = await r.json()
+      if(!remote.lotes||remote.lotes.length===0) remote.lotes=LOTES_SHAPE.map(l=>({...l}))
+      const remoteVersion = remote._version||0
+      const localVersion  = DB._version||0
+      if(remoteVersion > localVersion){
+        const merged = mergeLocalRemote(DB, remote)
+        DB = merged
+        localStorage.setItem(DB_LOCAL_KEY, JSON.stringify(DB))
         render()
         toast('Datos actualizados desde otro dispositivo','🔄')
       }
       setSyncStatus('ok')
-    }catch(e){setSyncStatus(navigator.onLine?'error':'local')}
-  },60000)
+    }catch(e){ setSyncStatus(navigator.onLine?'error':'local') }
+  }, 45000)
 }
-function stopAutoRefresh(){clearInterval(autoRefreshInterval)}
+function stopAutoRefresh(){ clearInterval(autoRefreshInterval) }
 
 function setSyncStatus(s){
   syncStatus=s
@@ -1715,15 +1768,14 @@ function setSyncStatus(s){
   if(!el)return
   const pending=getPending()
   const cfg={
-    local:   {icon:'💾',label:'Solo local',     color:'var(--hide)'},
-    syncing: {icon:'⏳',label:'Sincronizando…', color:'var(--gold)'},
-    ok:      {icon:'☁️',label:pending?'Pendiente':'Sincronizado', color:pending?'var(--gold)':'var(--green2)'},
-    error:   {icon:'⚠️',label:'Error de sync',  color:'var(--rust)'},
+    local:   {icon:'💾', label:'Solo local',      color:'var(--hide)'},
+    syncing: {icon:'⏳', label:'Guardando…',       color:'var(--gold)'},
+    ok:      {icon:'✅', label:pending?'Por subir':'Guardado',  color:pending?'var(--gold)':'var(--green2)'},
+    error:   {icon:'⚠️', label:'Reintentando…',   color:'var(--rust)'},
   }
   const {icon,label,color}=cfg[s]||cfg.local
   el.innerHTML=`<span>${icon}</span> <span>${label}</span>`
   el.style.color=color
-  el.title=s==='error'?'Tocá ↺ para reintentar':s==='syncing'?'Subiendo cambios…':s==='ok'&&pending?'Hay cambios por subir':''
   if(s==='syncing') el.setAttribute('data-syncing','1')
   else el.removeAttribute('data-syncing')
 }
@@ -1801,10 +1853,15 @@ async function initApp(){
   document.getElementById('nav-usuarios').onclick=function(){nav('usuarios',this)}
   // load data
   DB = await dbLoad()
+  // Si quedaron cambios pendientes de la sesión anterior, subirlos ahora
+  if(USE_JSONBIN && getPending() && navigator.onLine){
+    toast('Subiendo cambios pendientes de la sesión anterior…','⏳')
+    dbPush(DB)
+  }
   logActivity('Inicio de sesión','Ingresó al sistema')
   render()
   startAutoRefresh()
-  setSyncStatus(USE_JSONBIN?'ok':'local')
+  setSyncStatus(USE_JSONBIN?(getPending()?'error':'ok'):'local')
   // Alertas de vencimientos al iniciar
   setTimeout(()=>{
     const {vencidos,proximos}=checkVencimientos()||{}
@@ -3122,21 +3179,12 @@ const PENDING_KEY='gc_pending_sync'
 function getPending(){try{const v=localStorage.getItem(PENDING_KEY);return v?JSON.parse(v):false}catch{return false}}
 function setPending(v){localStorage.setItem(PENDING_KEY,v?'1':'')}
 
-// Override dbSave to track pending state
-const _origDbSave=dbSave
-// patch: mark pending when offline, clear when online save succeeds
 async function syncPendingChanges(){
-  if(!getPending())return
-  if(!USE_JSONBIN)return
-  setSyncStatus('syncing')
-  try{
-    await dbPush(DB)
-    setPending(false)
-    setSyncStatus('ok')
-    toast('Datos sincronizados con el servidor','☁️')
-  }catch(e){
-    setSyncStatus('error')
-  }
+  if(!getPending()) return
+  if(!USE_JSONBIN) return
+  if(!navigator.onLine){ setSyncStatus('local'); return }
+  await dbPush(DB)
+  if(!getPending()) toast('Datos sincronizados con el servidor','☁️')
 }
 // ══════════════════════════════════════════════════
 // CORRELATIVO AUTOMÁTICO
