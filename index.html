@@ -1546,9 +1546,11 @@ const LOTES_SHAPE = [
 // 3. Copiá el BIN_ID (el número largo en la URL) y tu API Key
 // 4. Pegálos abajo en las dos constantes
 
-const JSONBIN_ID  = '69c31644b7ec241ddc9d4721'
-const JSONBIN_KEY = '$2a$10$3eBCq7IajzjbgLJREYw.rOwJQqcZJY6tHAO5VFaDospaUmUo29dtO'
-const USE_JSONBIN = JSONBIN_ID !== 'TU_BIN_ID_AQUI'
+const JSONBIN_ID      = '69c31644b7ec241ddc9d4721'
+const JSONBIN_KEY     = '$2a$10$3eBCq7IajzjbgLJREYw.rOwJQqcZJY6tHAO5VFaDospaUmUo29dtO'
+const JSONBIN_BOT_ID  = '6a0f5b4d6610dd3ae88348c8'
+const USE_JSONBIN     = JSONBIN_ID !== 'TU_BIN_ID_AQUI'
+const USE_BOT_INBOX   = JSONBIN_BOT_ID !== 'PEGAR_BOT_INBOX_ID_AQUI'
 
 const DB_LOCAL_KEY = 'gc_lasmulas_2026'  // cache local para modo offline
 
@@ -1758,6 +1760,8 @@ function startAutoRefresh(){
       }
       setSyncStatus('ok')
     }catch(e){ setSyncStatus(navigator.onLine?'error':'local') }
+    // Chequear buzón del bot WhatsApp
+    processBotInbox()
   }, 45000)
 }
 function stopAutoRefresh(){ clearInterval(autoRefreshInterval) }
@@ -1858,6 +1862,8 @@ async function initApp(){
     toast('Subiendo cambios pendientes de la sesión anterior…','⏳')
     dbPush(DB)
   }
+  // Chequear buzón del bot al iniciar
+  processBotInbox()
   logActivity('Inicio de sesión','Ingresó al sistema')
   render()
   startAutoRefresh()
@@ -3185,6 +3191,49 @@ async function syncPendingChanges(){
   if(!navigator.onLine){ setSyncStatus('local'); return }
   await dbPush(DB)
   if(!getPending()) toast('Datos sincronizados con el servidor','☁️')
+}
+
+// ── Bot WhatsApp inbox ────────────────────────────
+// Lee el buzón del bot, procesa los registros pendientes y limpia el buzón
+async function processBotInbox(){
+  if(!USE_BOT_INBOX || !navigator.onLine) return
+  try{
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BOT_ID}/latest`,{
+      headers:{'X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'}
+    })
+    if(!r.ok) return
+    const data = await r.json()
+    const inbox = data.inbox || []
+    if(!inbox.length) return
+
+    let added = 0
+    inbox.forEach(item => {
+      if(!item || !item.array || item.array === 'query') return
+      const arr = DB[item.array]
+      if(!Array.isArray(arr)) return
+      // Separar el campo "array" del resto (que es el registro en sí)
+      const {array: _, ...record} = item
+      // Evitar duplicados por ID
+      if(record.id && arr.find(x => x.id === record.id)) return
+      arr.push(record)
+      added++
+      logActivity('📲 Bot WA', record.concepto || record.detalle || (record.mm ? record.mm+'mm lluvia' : ''))
+    })
+
+    if(added > 0){
+      // Limpiar el buzón
+      await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BOT_ID}`,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'},
+        body: JSON.stringify({inbox:[]})
+      })
+      dbSave(DB)
+      render()
+      toast(`${added} registro${added>1?'s':''} cargado${added>1?'s':''} desde WhatsApp 📲`,'✅')
+    }
+  }catch(e){
+    console.warn('Bot inbox check failed:',e)
+  }
 }
 // ══════════════════════════════════════════════════
 // CORRELATIVO AUTOMÁTICO
