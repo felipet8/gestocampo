@@ -409,6 +409,7 @@ tr:hover td{background:rgba(242,232,208,.4)}
     <div class="nav-sect">Análisis</div>
     <div class="nav-item" onclick="nav('reportes',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Reportes</div>
     <div class="nav-item" onclick="nav('lluvia',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="19" x2="8" y2="21"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="16" y1="19" x2="16" y2="21"/><line x1="16" y1="13" x2="16" y2="15"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="12" y1="15" x2="12" y2="17"/><path d="M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25"/></svg>Lluvias</div>
+    <div class="nav-item" onclick="nav('eventos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Eventos del Campo</div>
     <div class="nav-item" onclick="nav('insumos',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h10M7 12h6"/></svg>Insumos & Stock</div>
     <div class="nav-sect">Sistema</div>
     <div class="nav-item" id="nav-usuarios" onclick="nav('usuarios',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Usuarios</div>
@@ -971,6 +972,32 @@ tr:hover td{background:rgba(242,232,208,.4)}
   </div>
 </div>
 
+<!-- EVENTOS DEL CAMPO -->
+<div class="page" id="p-eventos">
+  <div class="ph">
+    <div><div class="ph-title">Eventos del Campo</div><div class="ph-sub">Alimentación, trabajos, sanidad y más</div></div>
+    <div class="ph-actions"><button class="btn btn-p" onclick="openM('m-evento')">+ Registrar Evento</button></div>
+  </div>
+  <div class="filter-bar">
+    <select id="ev-tipo-f" onchange="renderEventos()">
+      <option value="">Todos los tipos</option>
+      <option value="alimentacion">🌾 Alimentación</option>
+      <option value="trabajo">🔧 Trabajo</option>
+      <option value="sanidad">💉 Sanidad</option>
+      <option value="otro">📋 Otro</option>
+    </select>
+    <input type="month" id="ev-mes-f" onchange="renderEventos()">
+    <button class="btn btn-g" style="font-size:11px;padding:5px 10px" onclick="document.getElementById('ev-mes-f').value='';document.getElementById('ev-tipo-f').value='';renderEventos()">Ver todo</button>
+  </div>
+  <div class="tw">
+    <div class="tw-head"><h3>Historial de Eventos</h3><span id="ev-count" style="font-size:12px;color:var(--bark)"></span></div>
+    <table>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Lote / Lugar</th><th>Obs</th><th>Registrado por</th><th></th></tr></thead>
+      <tbody id="ev-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- INSUMOS & STOCK -->
 <div class="page" id="p-insumos">
   <div class="ph">
@@ -1442,6 +1469,33 @@ tr:hover td{background:rgba(242,232,208,.4)}
   </div>
 </div>
 
+<!-- MODAL EVENTO -->
+<div class="mb" id="m-evento">
+  <div class="modal">
+    <div class="mh"><h3>Registrar Evento</h3><button class="x-btn" onclick="closeM('m-evento')">✕</button></div>
+    <div class="mb-body">
+      <div class="fr">
+        <div class="fg"><label>Fecha *</label><input id="ev-fecha" type="date"></div>
+        <div class="fg"><label>Tipo *</label>
+          <select id="ev-tipo">
+            <option value="alimentacion">🌾 Alimentación</option>
+            <option value="trabajo">🔧 Trabajo</option>
+            <option value="sanidad">💉 Sanidad</option>
+            <option value="otro">📋 Otro</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg"><label>Detalle *</label><input id="ev-det" placeholder="Ej: 2 rollos, desmalezado, vacunación…"></div>
+      <div class="fg"><label>Lote / Lugar</label><input id="ev-lote" placeholder="Ej: Lote 13, Lote vacas, General…"></div>
+      <div class="fg"><label>Observaciones</label><input id="ev-obs" placeholder="Observaciones adicionales…"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeM('m-evento')">Cancelar</button>
+      <button class="btn btn-p" onclick="saveEvento()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL EDICIÓN MASIVA -->
 <div class="mb" id="m-edit-masivo">
   <div class="modal">
@@ -1554,7 +1608,7 @@ const USE_BOT_INBOX   = JSONBIN_BOT_ID !== 'PEGAR_BOT_INBOX_ID_AQUI'
 
 const DB_LOCAL_KEY = 'gc_lasmulas_2026'  // cache local para modo offline
 
-let DB = {animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[],insIngresos:[],insEgresos:[],pagos:[],silosConfig:[
+let DB = {animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],eventos:[],tropas:[],insIngresos:[],insEgresos:[],pagos:[],silosConfig:[
   {id:'s1',nombre:'Silo 1',capacidad:12,cultivo:'Maíz'},
   {id:'s2',nombre:'Silo 2',capacidad:12,cultivo:'Maíz'},
   {id:'s3',nombre:'Silo 3',capacidad:12,cultivo:'Maíz'},
@@ -1564,7 +1618,7 @@ let syncStatus = 'local'  // 'local' | 'syncing' | 'ok' | 'error'
 let syncDebounce = null
 
 function dbEmpty(){
-  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],tropas:[],insIngresos:[],insEgresos:[],pagos:[],silosConfig:[
+  return{animales:[],lotes:LOTES_SHAPE.map(l=>({...l})),ingresos:[],egresos:[],actlog:[],lluvias:[],eventos:[],tropas:[],insIngresos:[],insEgresos:[],pagos:[],silosConfig:[
     {id:'s1',nombre:'Silo 1',capacidad:12,cultivo:'Maíz'},
     {id:'s2',nombre:'Silo 2',capacidad:12,cultivo:'Maíz'},
     {id:'s3',nombre:'Silo 3',capacidad:12,cultivo:'Maíz'},
@@ -1642,6 +1696,7 @@ function mergeLocalRemote(local,remote){
     egresos:     unionById(local.egresos,    remote.egresos),
     actlog:      unionLog(local.actlog,      remote.actlog),
     lluvias:     unionById(local.lluvias||[],remote.lluvias||[]),
+    eventos:     unionById(local.eventos||[],remote.eventos||[]),
     tropas:      unionById(local.tropas||[], remote.tropas||[]),
     insIngresos: unionById(local.insIngresos||[],remote.insIngresos||[]),
     insEgresos:  unionById(local.insEgresos||[], remote.insEgresos||[]),
@@ -4403,8 +4458,63 @@ function renderFlujoCaja(){
 }
 
 function render(){
-  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderPagos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios,renderLluvia,renderTropas,renderInsumos]
+  const fns=[renderDashboard,renderStock,renderIngresos,renderEgresos,renderPagos,renderReportes,renderLoteGrid,renderMapLotes,renderUsuarios,renderLluvia,renderTropas,renderInsumos,renderEventos]
   fns.forEach(fn=>{try{fn()}catch(e){console.error(fn.name+' failed:',e)}})
+}
+
+// ══════════════════════════════════════════════════
+// EVENTOS DEL CAMPO
+// ══════════════════════════════════════════════════
+const TIPO_EVENTO_LABEL = {alimentacion:'🌾 Alimentación', trabajo:'🔧 Trabajo', sanidad:'💉 Sanidad', otro:'📋 Otro'}
+
+function renderEventos(){
+  if(!DB.eventos) DB.eventos=[]
+  const tf=(document.getElementById('ev-tipo-f')||{value:''}).value
+  const mf=(document.getElementById('ev-mes-f')||{value:''}).value
+  let evs=[...DB.eventos]
+  if(tf) evs=evs.filter(e=>e.tipo===tf)
+  if(mf) evs=evs.filter(e=>(e.fecha||'').startsWith(mf))
+  evs.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''))
+  const el=document.getElementById('ev-tbody'); if(!el)return
+  const cnt=document.getElementById('ev-count'); if(cnt) cnt.textContent=`${evs.length} evento${evs.length!==1?'s':''}`
+  el.innerHTML=evs.length?evs.map(e=>`<tr>
+    <td>${$fd(e.fecha)}</td>
+    <td><span style="white-space:nowrap">${TIPO_EVENTO_LABEL[e.tipo]||e.tipo||'—'}</span></td>
+    <td>${e.detalle||'—'}</td>
+    <td>${e.lote||'—'}</td>
+    <td>${e.obs||'—'}</td>
+    <td style="font-size:11px;color:var(--bark)">${e.uname||e.uid||'—'}</td>
+    <td><button class="btn btn-g" style="padding:3px 8px;font-size:11px" onclick="delEvento('${e.id}')">✕</button></td>
+  </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--bark);padding:24px">Sin eventos registrados</td></tr>'
+}
+
+function saveEvento(){
+  const fecha=document.getElementById('ev-fecha').value||today()
+  const tipo=document.getElementById('ev-tipo').value
+  const det=document.getElementById('ev-det').value.trim()
+  const lote=document.getElementById('ev-lote').value.trim()
+  const obs=document.getElementById('ev-obs').value.trim()
+  if(!det){alert('Completá el detalle del evento');return}
+  if(!DB.eventos) DB.eventos=[]
+  const rec={
+    id:'evt_'+Date.now(),
+    fecha, tipo, detalle:det, lote, obs,
+    uid:currentUser.id, uname:currentUser.name
+  }
+  DB.eventos.push(rec)
+  dbSave(DB)
+  logActivity('Evento registrado',`${TIPO_EVENTO_LABEL[tipo]||tipo}: ${det}${lote?' — '+lote:''}`)
+  closeM('m-evento')
+  render()
+  document.getElementById('ev-det').value=''
+  document.getElementById('ev-lote').value=''
+  document.getElementById('ev-obs').value=''
+}
+
+function delEvento(id){
+  if(!confirm('¿Eliminar este evento?'))return
+  DB.eventos=DB.eventos.filter(e=>e.id!==id)
+  dbSave(DB); render()
 }
 </script>
 </body>
