@@ -3258,7 +3258,9 @@ async function processBotInbox(){
     })
     if(!r.ok) return
     const data = await r.json()
-    const inbox = data.inbox || []
+    // Soporta {"inbox":[...]} (formato original) y objeto plano {array:...} (formato data structure)
+    const inbox = Array.isArray(data.inbox) ? data.inbox :
+                  (data.array ? [data] : [])
     if(!inbox.length) return
 
     let added = 0
