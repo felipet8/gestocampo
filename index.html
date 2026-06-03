@@ -1061,6 +1061,9 @@ tr:hover td{background:rgba(242,232,208,.4)}
         <label class="export-check"><input type="checkbox" id="ex-lotes" checked> 🗺 Lotes</label>
         <label class="export-check"><input type="checkbox" id="ex-ing" checked> 💰 Ingresos</label>
         <label class="export-check"><input type="checkbox" id="ex-egr" checked> 📤 Egresos</label>
+        <label class="export-check"><input type="checkbox" id="ex-pagos" checked> 💳 Pagos & Cheques</label>
+        <label class="export-check"><input type="checkbox" id="ex-eventos" checked> 📋 Eventos Campo</label>
+        <label class="export-check"><input type="checkbox" id="ex-insumos" checked> 📦 Insumos Stock</label>
         <label class="export-check"><input type="checkbox" id="ex-res" checked> 📊 Resumen</label>
       </div>
       <button class="btn btn-xl" onclick="exportarExcel()">
@@ -3123,6 +3126,38 @@ function exportarExcel(){
     const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:12},{wch:18},{wch:26},{wch:18},{wch:13},{wch:14},{wch:13}]
     XLSX.utils.book_append_sheet(wb,ws,'Egresos')
   }
+  if(document.getElementById('ex-pagos').checked){
+    const rows=[['Concepto','Categoría','Importe ($)','Vencimiento','Frecuencia','Estado','Fecha Pago','Observaciones']]
+    ;(DB.pagos||[]).forEach(p=>rows.push([p.concepto,p.cat||'',p.importe,$fd(p.fechaVenc),p.frec||'',p.estado||'pendiente',p.fechaPago?$fd(p.fechaPago):'',p.obs||'']))
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:28},{wch:16},{wch:13},{wch:13},{wch:12},{wch:11},{wch:13},{wch:24}]
+    XLSX.utils.book_append_sheet(wb,ws,'Pagos & Cheques')
+  }
+  if(document.getElementById('ex-eventos').checked){
+    const rows=[['Fecha','Tipo','Detalle','Lote / Lugar','Observaciones','Registrado por']]
+    ;(DB.eventos||[]).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).forEach(e=>rows.push([$fd(e.fecha),TIPO_EVENTO_LABEL[e.tipo]||e.tipo||'',e.detalle||'',e.lote||'',e.obs||'',e.uname||'']))
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:12},{wch:16},{wch:28},{wch:16},{wch:24},{wch:16}]
+    XLSX.utils.book_append_sheet(wb,ws,'Eventos Campo')
+  }
+  if(document.getElementById('ex-insumos').checked){
+    // Stock actual por insumo
+    const stockRows=[['Insumo','Categoría','Stock Actual','Unidad']]
+    getAllInsumos().forEach(i=>{
+      const s=i.cat==='silo'?getSiloStock(i.nombre):getInsStock(i.cat,i.nombre)
+      stockRows.push([i.nombre,i.cat,s,INS_CAT_UNIT[i.cat]||''])
+    })
+    const wsStock=XLSX.utils.aoa_to_sheet(stockRows);wsStock['!cols']=[{wch:28},{wch:14},{wch:13},{wch:10}]
+    XLSX.utils.book_append_sheet(wb,wsStock,'Insumos Stock')
+    // Historial ingresos
+    const ingRows=[['Fecha','Insumo','Cat','Cantidad','Unidad','Costo ($)','Proveedor','Obs']]
+    ;(DB.insIngresos||[]).forEach(i=>ingRows.push([$fd(i.fecha),i.nombre,i.cat,i.cantidad,i.unidad,i.costo||0,i.proveedor||'',i.obs||'']))
+    const wsIng=XLSX.utils.aoa_to_sheet(ingRows);wsIng['!cols']=[{wch:12},{wch:24},{wch:12},{wch:10},{wch:8},{wch:12},{wch:18},{wch:20}]
+    XLSX.utils.book_append_sheet(wb,wsIng,'Insumos Ingresos')
+    // Historial usos
+    const egrRows=[['Fecha','Insumo','Cat','Cantidad','Unidad','Lote/Tropa','Obs']]
+    ;(DB.insEgresos||[]).forEach(e=>egrRows.push([$fd(e.fecha),e.nombre,e.cat,e.cantidad,e.unidad,e.tropaId||e.loteId||'',e.obs||'']))
+    const wsEgr=XLSX.utils.aoa_to_sheet(egrRows);wsEgr['!cols']=[{wch:12},{wch:24},{wch:12},{wch:10},{wch:8},{wch:16},{wch:20}]
+    XLSX.utils.book_append_sheet(wb,wsEgr,'Insumos Usos')
+  }
   if(document.getElementById('ex-res').checked){
     const ing=sum(DB.ingresos,i=>i.importe),egr=sum(DB.egresos,e=>e.importe),act=DB.animales.filter(a=>a.estado==='activo')
     const totalHa=DB.lotes.reduce((s,l)=>s+(l.ha||0),0)
@@ -3274,6 +3309,10 @@ async function processBotInbox(){
       if(record.id && arr.find(x => x.id === record.id)) return
       arr.push(record)
       added++
+      // Deducir rollos automáticamente si es evento de alimentación vía bot
+      if(item.array==='eventos' && record.tipo==='alimentacion'){
+        autoDeductRollos(record.detalle, record.fecha, record.lote)
+      }
       logActivity('📲 Bot WA', record.concepto || record.detalle || (record.mm ? record.mm+'mm lluvia' : ''))
     })
 
@@ -4490,6 +4529,39 @@ function renderEventos(){
   </tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--bark);padding:24px">Sin eventos registrados</td></tr>'
 }
 
+function autoDeductRollos(detalle, fecha, lote){
+  // Intentar extraer cantidad de rollos del detalle
+  const m = (detalle||'').match(/(\d+(?:[.,]\d+)?)\s*rollo/i)
+  if(!m) return
+  const cantidad = parseFloat(m[1].replace(',','.'))
+  if(!cantidad || cantidad <= 0) return
+  if(!DB.insEgresos) DB.insEgresos=[]
+  if(!DB.insIngresos) DB.insIngresos=[]
+  // Buscar el primer tipo de rollo con stock disponible
+  let rolloNombre = null
+  for(const t of ROLLO_TIPOS){
+    const nombre=`Rollo — ${ROLLO_TIPO_LABEL[t]}`
+    if(getInsStock('rollo', nombre) >= cantidad){ rolloNombre=nombre; break }
+  }
+  // Si no hay ninguno con stock suficiente, usar el que tenga más stock
+  if(!rolloNombre){
+    let maxStock=0
+    for(const t of ROLLO_TIPOS){
+      const nombre=`Rollo — ${ROLLO_TIPO_LABEL[t]}`
+      const s=getInsStock('rollo',nombre)
+      if(s>maxStock){maxStock=s;rolloNombre=nombre}
+    }
+  }
+  if(!rolloNombre) return // No hay rollos registrados en stock
+  DB.insEgresos.push({
+    id:uid(), fecha, cat:'rollo', nombre:rolloNombre,
+    cantidad, unidad:'rollos',
+    tropaId:'', loteId:'', obs:`Alimentación: ${lote||detalle}`,
+    uid:currentUser.id||'bot', uname:currentUser.name||'Bot WA'
+  })
+  logActivity('Rollos descontados',`${cantidad} ${rolloNombre} — ${lote||detalle}`)
+}
+
 function saveEvento(){
   const fecha=document.getElementById('ev-fecha').value||today()
   const tipo=document.getElementById('ev-tipo').value
@@ -4504,6 +4576,8 @@ function saveEvento(){
     uid:currentUser.id, uname:currentUser.name
   }
   DB.eventos.push(rec)
+  // Deducir rollos automáticamente si es evento de alimentación
+  if(tipo==='alimentacion') autoDeductRollos(det, fecha, lote)
   dbSave(DB)
   logActivity('Evento registrado',`${TIPO_EVENTO_LABEL[tipo]||tipo}: ${det}${lote?' — '+lote:''}`)
   closeM('m-evento')
