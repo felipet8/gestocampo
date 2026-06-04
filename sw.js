@@ -1,9 +1,9 @@
-// GestoCampo — Service Worker v2
+// GestoCampo — Service Worker v3
 // Estrategia: cache-first para assets CDN, network-first para el HTML
 
-const CACHE_NAME = 'gestocampo-v2';
+const CACHE_NAME = 'gestocampo-v3';
 const STATIC_ASSETS = [
-  './gestocampo.html',
+  './index.html',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap',
   'https://fonts.gstatic.com/s/cormorantgaramond/v22/BXRovF3Pi-DLmw2JnBgPMC4E2jtaWFSqgA.woff2',
