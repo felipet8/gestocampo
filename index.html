@@ -3302,6 +3302,7 @@ async function processBotInbox(){
     const r = await fetch(FIREBASE_BOT)
     if(!r.ok) return
     const data = await r.json()
+    if(!data) return  // Firebase devuelve null cuando el nodo está vacío
     // Soporta {"inbox":[...]} (formato original) y objeto plano {array:...} (formato data structure)
     const inbox = Array.isArray(data.inbox) ? data.inbox :
                   (data.array ? [data] : [])
