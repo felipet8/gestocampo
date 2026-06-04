@@ -1603,11 +1603,12 @@ const LOTES_SHAPE = [
 // 3. Copiá el BIN_ID (el número largo en la URL) y tu API Key
 // 4. Pegálos abajo en las dos constantes
 
-const JSONBIN_ID      = '69c31644b7ec241ddc9d4721'
-const JSONBIN_KEY     = '$2a$10$3eBCq7IajzjbgLJREYw.rOwJQqcZJY6tHAO5VFaDospaUmUo29dtO'
-const JSONBIN_BOT_ID  = '6a0f5b4d6610dd3ae88348c8'
-const USE_JSONBIN     = JSONBIN_ID !== 'TU_BIN_ID_AQUI'
-const USE_BOT_INBOX   = JSONBIN_BOT_ID !== 'PEGAR_BOT_INBOX_ID_AQUI'
+// ── Firebase Realtime Database ─────────────────────
+const FIREBASE_URL     = 'https://gestocampo-f9fef-default-rtdb.firebaseio.com'
+const FIREBASE_DB      = `${FIREBASE_URL}/gestocampo_db.json`
+const FIREBASE_BOT     = `${FIREBASE_URL}/bot_inbox.json`
+const USE_JSONBIN      = true   // mantener para compatibilidad con checks existentes
+const USE_BOT_INBOX    = true
 
 const DB_LOCAL_KEY = 'gc_lasmulas_2026'  // cache local para modo offline
 
@@ -1637,11 +1638,21 @@ async function dbLoad(){
   }
   setSyncStatus('syncing')
   try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,{
-      headers:{'X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'}
-    })
+    const r=await fetch(FIREBASE_DB)
     if(!r.ok)throw new Error('HTTP '+r.status)
-    const remote=await r.json()
+    const raw=await r.json()
+    // Firebase devuelve null cuando el nodo está vacío
+    if(!raw || typeof raw !== 'object'){
+      const local=lsGetDb()
+      if(local && local.animales && local.animales.length>0){
+        setSyncStatus('ok')
+        setPending(true)
+        setTimeout(()=>dbPush(local),2000)  // subir datos locales a Firebase
+        return local
+      }
+      throw new Error('Firebase empty')
+    }
+    const remote=raw
     if(!remote.lotes||remote.lotes.length===0)remote.lotes=LOTES_SHAPE.map(l=>({...l}))
     // Silos siempre deben tener los 4 por defecto si el remoto no los tiene
     if(!remote.silosConfig||remote.silosConfig.length===0)remote.silosConfig=[
@@ -1736,9 +1747,9 @@ async function dbPush(db, silent=false){
   if(!navigator.onLine){ setSyncStatus('local'); return }
   if(!silent) setSyncStatus('syncing')
   try{
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,{
+    const r = await fetch(FIREBASE_DB,{
       method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'},
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify(db)
     })
     if(!r.ok) throw new Error('HTTP '+r.status)
@@ -1776,7 +1787,7 @@ window.addEventListener('beforeunload', ()=>{
     // sendBeacon: disparo-y-olvido que el navegador completa aunque se cierre la pestaña
     const blob = new Blob([JSON.stringify(DB)], {type:'application/json'})
     navigator.sendBeacon &&
-      navigator.sendBeacon(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, blob)
+      navigator.sendBeacon(FIREBASE_DB, blob)
   }
 })
 
@@ -3288,9 +3299,7 @@ async function syncPendingChanges(){
 async function processBotInbox(){
   if(!USE_BOT_INBOX || !navigator.onLine) return
   try{
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BOT_ID}/latest`,{
-      headers:{'X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'}
-    })
+    const r = await fetch(FIREBASE_BOT)
     if(!r.ok) return
     const data = await r.json()
     // Soporta {"inbox":[...]} (formato original) y objeto plano {array:...} (formato data structure)
@@ -3318,9 +3327,9 @@ async function processBotInbox(){
 
     if(added > 0){
       // Limpiar el buzón
-      await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BOT_ID}`,{
+      await fetch(FIREBASE_BOT,{
         method:'PUT',
-        headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Meta':'false'},
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({inbox:[]})
       })
       dbSave(DB)
