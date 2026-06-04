@@ -36,7 +36,8 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
 
-  // Dejar pasar JSONBin y Google Fonts CSS (siempre necesita red)
+  // Dejar pasar Firebase y Google Fonts CSS (siempre necesita red)
+  if (url.hostname.includes('firebaseio.com')) return;
   if (url.hostname === 'api.jsonbin.io') return;
 
   // Network-first para el HTML (obtiene siempre la versión más nueva)
